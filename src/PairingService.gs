@@ -1,29 +1,26 @@
-/**
- * Auto-split module from legacy Code.gs
+﻿/**
+ * Pairing service
  */
 
 function suggestPairsByRank(payload) {
-  ensureSupportSheets_();
-  syncPlayersFromResponses_();
-
   payload = payload || {};
   var weekKey = String(payload.weekKey || '').trim();
   if (!weekKey) {
-    throw new Error('Bạn cần chọn tuần trước khi ghép cặp.');
+    throw new Error('Ban can chon tuan truoc khi ghep cap.');
   }
 
   var pairCount = Number(payload.pairCount || 0);
   if (!pairCount || pairCount < 1) {
-    throw new Error('Số cặp cần ghép phải lớn hơn 0.');
+    throw new Error('So cap can ghep phai lon hon 0.');
   }
   pairCount = Math.floor(pairCount);
 
   var eventDate = parseDateInput_(payload.eventDate);
   if (!eventDate) {
-    throw new Error('Bạn cần chọn ngày thi đấu trước khi ghép cặp.');
+    throw new Error('Ban can chon ngay thi dau truoc khi ghep cap.');
   }
   if (eventDate.getDay() !== 4 && eventDate.getDay() !== 5) {
-    throw new Error('Ngày thi đấu chỉ được phép là Thứ 5 hoặc Thứ 6.');
+    throw new Error('Ngay thi dau chi duoc phep la Thu 5 hoac Thu 6.');
   }
 
   var requests = getWeekRequests_(weekKey);
@@ -39,13 +36,13 @@ function suggestPairsByRank(payload) {
       countAdded: 0,
       countSkipped: 0,
       eventDate: formatDate_(eventDate, 'dd/MM/yyyy'),
-      message: 'Tuần này chưa có dữ liệu đăng ký để ghép cặp.'
+      message: 'Tuan nay chua co du lieu dang ky de ghep cap.'
     };
   }
 
   var groups = {};
   for (var i = 0; i < requests.length; i++) {
-    var rankKey = requests[i].rankNormalized || 'Không rõ';
+    var rankKey = requests[i].rankNormalized || 'Khong ro';
     if (!groups[rankKey]) {
       groups[rankKey] = [];
     }
@@ -137,14 +134,14 @@ function suggestPairsByRank(payload) {
   var missingPairs = Math.max(0, pairCount - actualPairs);
   var eventDateText = formatDate_(eventDate, 'dd/MM/yyyy');
 
-  var message = 'Ghép cặp cho ngày ' + eventDateText + ': yêu cầu ' + pairCount +
-    ' cặp, ghép được ' + actualPairs + ' cặp.';
+  var message = 'Ghep cap cho ngay ' + eventDateText + ': yeu cau ' + pairCount +
+    ' cap, ghep duoc ' + actualPairs + ' cap.';
   if (missingPairs > 0) {
-    message += ' Thiếu ' + missingPairs + ' cặp do không đủ người đồng rank.';
+    message += ' Thieu ' + missingPairs + ' cap do khong du nguoi dong rank.';
   }
-  message += ' Đã cập nhật số lần được chọn: ' + countResult.added + ' người.';
+  message += ' Da cap nhat so lan duoc chon: ' + countResult.added + ' nguoi.';
   if (countResult.skipped > 0) {
-    message += ' Bỏ qua ' + countResult.skipped + ' người vì đã được tính trước đó.';
+    message += ' Bo qua ' + countResult.skipped + ' nguoi vi da duoc tinh truoc do.';
   }
 
   return {
@@ -162,7 +159,6 @@ function suggestPairsByRank(payload) {
   };
 }
 
-
 function getRankOrder_(rankLabel) {
   for (var i = 0; i < CONFIG.RANK_LEVELS.length; i++) {
     if (CONFIG.RANK_LEVELS[i] === rankLabel) {
@@ -171,7 +167,6 @@ function getRankOrder_(rankLabel) {
   }
   return CONFIG.RANK_LEVELS.length + 1;
 }
-
 
 function sortRequestsForPair_(a, b) {
   if (Number(!!b.priority) !== Number(!!a.priority)) {
@@ -186,14 +181,11 @@ function sortRequestsForPair_(a, b) {
   return String(a.ingame || a.name || a.email).localeCompare(String(b.ingame || b.name || b.email));
 }
 
-
 function toPairPlayer_(row) {
   return {
     email: row.email,
     name: row.name,
     ingame: row.ingame || row.name,
-    rank: row.rankNormalized || 'Không rõ'
+    rank: row.rankNormalized || 'Khong ro'
   };
 }
-
-

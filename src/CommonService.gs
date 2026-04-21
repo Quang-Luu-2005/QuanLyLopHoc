@@ -170,26 +170,15 @@ function buildEventDateOptions_(weekKey) {
 
 function readWeeklyPriorities_(weekKey) {
   var map = {};
-  if (!weekKey) {
+  var key = String(weekKey || '').trim();
+  if (!key) {
     return map;
   }
 
-  var sheet = getOrCreateSheet_(CONFIG.SHEETS.WEEKLY_PRIORITY, CONFIG.WEEKLY_PRIORITY_HEADERS);
-  if (sheet.getLastRow() < 2) {
-    return map;
-  }
-
-  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, CONFIG.WEEKLY_PRIORITY_HEADERS.length).getValues();
-  for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0] || '') !== weekKey) {
-      continue;
-    }
-    var email = normalizeEmail_(values[i][1]);
-    if (!email) {
-      continue;
-    }
-    if (toBoolean_(values[i][2])) {
-      map[email] = true;
+  var rows = getWeekRequests_(key);
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].priority) {
+      map[normalizeEmail_(rows[i].email)] = true;
     }
   }
 
@@ -198,42 +187,14 @@ function readWeeklyPriorities_(weekKey) {
 
 
 function saveWeeklyPriorities_(weekKey, items) {
-  var sheet = getOrCreateSheet_(CONFIG.SHEETS.WEEKLY_PRIORITY, CONFIG.WEEKLY_PRIORITY_HEADERS);
-  var values = [];
-  if (sheet.getLastRow() >= 2) {
-    values = sheet.getRange(2, 1, sheet.getLastRow() - 1, CONFIG.WEEKLY_PRIORITY_HEADERS.length).getValues();
-  }
+  var result = apiPost_('/internal/save-priorities', {
+    weekKey: String(weekKey || '').trim(),
+    items: Array.isArray(items) ? items : []
+  });
 
-  var kept = [];
-  for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0] || '') !== weekKey) {
-      kept.push(values[i]);
-    }
-  }
-
-  var now = new Date();
-  var prioritized = 0;
-  var seen = {};
-
-  for (var j = 0; j < items.length; j++) {
-    var email = normalizeEmail_(items[j].email);
-    if (!email || !items[j].priority || seen[email]) {
-      continue;
-    }
-    seen[email] = true;
-    kept.push([weekKey, email, true, now]);
-    prioritized++;
-  }
-
-  if (sheet.getLastRow() > 1) {
-    sheet.getRange(2, 1, sheet.getLastRow() - 1, CONFIG.WEEKLY_PRIORITY_HEADERS.length).clearContent();
-  }
-
-  if (kept.length) {
-    sheet.getRange(2, 1, kept.length, CONFIG.WEEKLY_PRIORITY_HEADERS.length).setValues(kept);
-  }
-
-  return { prioritized: prioritized };
+  return {
+    prioritized: Number(result.prioritized || 0)
+  };
 }
 
 

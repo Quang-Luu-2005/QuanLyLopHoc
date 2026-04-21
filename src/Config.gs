@@ -1,10 +1,27 @@
-var ENV = (typeof getEnv_ === 'function') ? getEnv_() : {};
+﻿var ENV = (typeof getEnv_ === 'function') ? getEnv_() : {};
+
+function readScriptProperty_(key, fallbackValue) {
+  try {
+    var value = PropertiesService.getScriptProperties().getProperty(String(key || '').trim());
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return fallbackValue;
+    }
+    return value;
+  } catch (err) {
+    return fallbackValue;
+  }
+}
 
 var CONFIG = {
   TARGET: {
-    FORM_URL: String(ENV.TARGET_FORM_URL || 'https://forms.gle/5PfrDPZ8A7nS3s337').trim(),
-    SPREADSHEET_ID: String(ENV.TARGET_SPREADSHEET_ID || '1lzhf6hx1Qc95ugAk6DXL__qmI11gkbULXZEZuH6Q0X4').trim(),
-    SPREADSHEET_URL: String(ENV.TARGET_SPREADSHEET_URL || 'https://docs.google.com/spreadsheets/d/1lzhf6hx1Qc95ugAk6DXL__qmI11gkbULXZEZuH6Q0X4/edit?usp=sharing').trim()
+    FORM_URL: String(ENV.TARGET_FORM_URL || '').trim(),
+    SPREADSHEET_ID: String(ENV.TARGET_SPREADSHEET_ID || '').trim(),
+    SPREADSHEET_URL: String(ENV.TARGET_SPREADSHEET_URL || '').trim()
+  },
+  API: {
+    BASE_URL: String(readScriptProperty_('API_BASE_URL', ENV.API_BASE_URL || '')).trim(),
+    INTERNAL_API_KEY: String(readScriptProperty_('INTERNAL_API_KEY', ENV.INTERNAL_API_KEY || '')).trim(),
+    TIMEOUT_MS: Number(readScriptProperty_('API_TIMEOUT_MS', ENV.API_TIMEOUT_MS || 20000))
   },
   SHEETS: {
     PLAYERS: 'Players',
@@ -17,27 +34,6 @@ var CONFIG = {
   LOG_HEADERS: ['Timestamp', 'EventDate', 'WeekKey', 'Email', 'Name', 'PriorityAtSelection', 'MailStatus', 'Subject', 'ZaloLink'],
   WEEKLY_PRIORITY_HEADERS: ['WeekKey', 'Email', 'Priority', 'UpdatedAt'],
   SELECTION_COUNT_HEADERS: ['Timestamp', 'WeekKey', 'EventDateKey', 'Email', 'Name', 'Ingame', 'Rank', 'Source'],
-  PAYMENT_STATUS_LOG_HEADERS: [
-    'Timestamp',
-    'WeekKey',
-    'EventDateKey',
-    'Email',
-    'Name',
-    'Ingame',
-    'PaymentCode',
-    'PaymentStatus',
-    'PaidAmount',
-    'PaymentRef',
-    'PayOSOrderCode',
-    'PayOSPaymentLinkId',
-    'PayOSCheckoutUrl',
-    'Source',
-    'Note'
-  ],
-  PAYMENT_STATUS: {
-    SPREADSHEET_ID: String(ENV.PAYMENT_STATUS_SPREADSHEET_ID || '1wyCpBgiRMNpZAuPe_2-ZZH4FfeslH-fxYLQFRAbknE8').trim(),
-    SHEET_NAME: String(ENV.PAYMENT_STATUS_SHEET_NAME || 'Payment_Status_Log').trim()
-  },
   PAYMENT_REQUEST_HEADERS: [
     'RequestId',
     'CreatedAt',
@@ -66,33 +62,32 @@ var CONFIG = {
     'LastMailAt',
     'LastError'
   ],
-  MAIL_SENDER_NAME: String(ENV.MAIL_SENDER_NAME || 'Lớp học Thành Man').trim() || 'Lớp học Thành Man',
-  DEFAULT_SUBJECT: 'Thông báo: Bạn đã được chọn thi đấu ngày {{eventDate}}',
-  DEFAULT_MESSAGE: 'Nếu cần hỗ trợ, vui lòng liên hệ Zalo: https://zalo.me/0971309547',
+  MAIL_SENDER_NAME: String(ENV.MAIL_SENDER_NAME || 'Lop hoc Thanh Man').trim() || 'Lop hoc Thanh Man',
+  DEFAULT_SUBJECT: 'Thong bao: Ban da duoc chon thi dau ngay {{eventDate}}',
+  DEFAULT_MESSAGE: 'Neu can ho tro, vui long lien he Zalo: https://zalo.me/0971309547',
   PAYMENT: {
-    AMOUNT: Number(ENV.PAYMENT_AMOUNT || 50000),
-    FEE_TEXT: String(ENV.PAYMENT_FEE_TEXT || '50.000đ'),
-    NOTE_TEXT: String(ENV.PAYMENT_NOTE_TEXT || 'Bạn vui lòng chuyển khoản để nhận được link group zalo tham gia buổi thực hành.'),
-    QR_DRIVE_FILE_ID: String(ENV.PAYMENT_QR_DRIVE_FILE_ID || '').trim(),
+    AMOUNT: Number(ENV.PAYMENT_AMOUNT || readScriptProperty_('DEFAULT_PAYMENT_AMOUNT', 50000)),
+    FEE_TEXT: String(ENV.PAYMENT_FEE_TEXT || '50.000d'),
+    NOTE_TEXT: String(ENV.PAYMENT_NOTE_TEXT || 'Ban vui long chuyen khoan de nhan duoc link group Zalo tham gia buoi thuc hanh.'),
     CODE_PREFIX: String(ENV.PAYMENT_CODE_PREFIX || 'GE').trim(),
-    TIMEOUT_HOURS: Number(ENV.PAYMENT_TIMEOUT_HOURS || 12),
-    GROUP_MAIL_COOLDOWN_MINUTES: Number(ENV.PAYMENT_GROUP_MAIL_COOLDOWN_MINUTES || 2),
-    WEBHOOK_TOKEN: String(ENV.PAYMENT_WEBHOOK_TOKEN || '').trim(),
-    PAYOS_CLIENT_ID: String(ENV.PAYOS_CLIENT_ID || '').trim(),
-    PAYOS_API_KEY: String(ENV.PAYOS_API_KEY || '').trim(),
-    PAYOS_CHECKSUM_KEY: String(ENV.PAYOS_CHECKSUM_KEY || '').trim(),
-    PAYOS_RETURN_URL: String(ENV.PAYOS_RETURN_URL || '').trim(),
-    PAYOS_CANCEL_URL: String(ENV.PAYOS_CANCEL_URL || '').trim(),
-    PAYOS_API_BASE: String(ENV.PAYOS_API_BASE || 'https://api-merchant.payos.vn').trim()
+    GROUP_MAIL_COOLDOWN_MINUTES: Number(ENV.PAYMENT_GROUP_MAIL_COOLDOWN_MINUTES || 2)
   },
   RANK_LEVELS: [
-    'Nghiệp dư',
-    'Bán chuyên',
-    'Chuyên nghiệp',
-    'Thế giới',
+    'Nghiep du',
+    'Ban chuyen',
+    'Chuyen nghiep',
+    'The gioi',
     'Tinh anh',
-    'Huyền thoại',
-    'Thách đấu',
-    'Siêu sao'
-  ]
+    'Huyen thoai',
+    'Thach dau',
+    'Sieu sao'
+  ],
+  FORM_SYNC: {
+    PROPERTY_LAST_ROW: 'LAST_SYNCED_FORM_ROW',
+    BATCH_SIZE: Number(ENV.FORM_SYNC_BATCH_SIZE || 50)
+  }
 };
+
+function getConfig_() {
+  return CONFIG;
+}

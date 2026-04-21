@@ -722,6 +722,8 @@
           var paymentClass = getPaymentChipClass(row);
           html += '' +
             '<tr data-email="' + escapeHtml(row.email) + '"' +
+            ' data-player-id="' + Number(row.playerId || 0) + '"' +
+            ' data-submission-id="' + Number(row.submissionId || 0) + '"' +
             ' data-name="' + escapeHtml(row.name || '') + '"' +
             ' data-ingame="' + escapeHtml(row.ingame || row.name || '') + '"' +
             ' data-rank="' + escapeHtml(row.rankNormalized || 'Không rõ') + '"' +
@@ -971,6 +973,8 @@
           }
 
           selected.push({
+            playerId: Number(row.getAttribute('data-player-id') || 0) || null,
+            submissionId: Number(row.getAttribute('data-submission-id') || 0) || null,
             email: row.getAttribute('data-email'),
             name: row.getAttribute('data-name'),
             ingame: row.getAttribute('data-ingame'),
