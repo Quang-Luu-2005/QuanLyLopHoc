@@ -1,0 +1,1167 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <base target="_top">
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --card: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --primary: #0f766e;
+        --primary-dark: #0b5f59;
+        --warn: #b91c1c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 14px;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .app {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      h2 {
+        margin: 2px 0 12px;
+        font-size: 17px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        width: 100%;
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px;
+        background: #fff;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 70px;
+      }
+
+      .row-inline {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 12px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 9px;
+        cursor: pointer;
+      }
+
+      .actions button {
+        width: auto;
+        padding: 6px 10px;
+        font-size: 12px;
+        line-height: 1.2;
+      }
+
+      button.primary {
+        background: var(--primary);
+        color: #fff;
+      }
+
+      button.primary:hover {
+        background: var(--primary-dark);
+      }
+
+      button.secondary {
+        background: #eef2ff;
+        color: #1e3a8a;
+      }
+
+      button.small {
+        width: auto;
+        padding: 8px 10px;
+      }
+
+      button.ghost {
+        background: #f3f4f6;
+        color: #374151;
+      }
+
+      .status {
+        margin-top: 10px;
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 12px;
+        background: #ecfeff;
+        color: #155e75;
+      }
+
+      .status.error {
+        background: #fef2f2;
+        color: var(--warn);
+      }
+
+      .payment-toolbar {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .payment-toolbar .toolbar-label {
+        font-size: 12px;
+        color: var(--muted);
+        margin-right: 2px;
+      }
+
+      .payment-toolbar .filter-chip {
+        width: auto;
+        border: 1px solid #dbe3f0;
+        background: #f8fafc;
+        color: #1f2937;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+      }
+
+      .payment-toolbar .filter-chip.active {
+        background: #0f766e;
+        color: #fff;
+        border-color: #0f766e;
+      }
+
+      .pay-chip {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+        line-height: 1.4;
+        font-weight: 600;
+        border: 1px solid transparent;
+      }
+
+      .pay-chip--paid {
+        background: #ecfdf5;
+        color: #065f46;
+        border-color: #a7f3d0;
+      }
+
+      .pay-chip--pending {
+        background: #eff6ff;
+        color: #1e3a8a;
+        border-color: #bfdbfe;
+      }
+
+      .pay-chip--failed {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #fecaca;
+      }
+
+      .pay-chip--none {
+        background: #f3f4f6;
+        color: #4b5563;
+        border-color: #e5e7eb;
+      }
+
+      .table-wrap {
+        margin-top: 10px;
+        max-height: 360px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 7px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f9fafb;
+        position: sticky;
+        top: 0;
+      }
+
+      th.center,
+      td.center {
+        text-align: center;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+
+      .modal.hidden {
+        display: none;
+      }
+
+      .modal-card {
+        width: 100%;
+        max-width: 440px;
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        padding: 14px;
+      }
+
+      .modal-card.large {
+        max-width: 780px;
+      }
+
+      .modal-title {
+        font-size: 16px;
+        margin: 0 0 6px;
+      }
+
+      .modal-desc {
+        margin: 0 0 10px;
+        font-size: 13px;
+        color: #4b5563;
+      }
+
+      .modal-actions {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .pair-content {
+        max-height: 420px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .pair-content table {
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h2>GatherEasy - Quản lý đăng ký theo tuần</h2>
+
+      <div class="grid">
+        <label for="weekSelect">Tuần đăng ký</label>
+        <div class="row-inline">
+          <select id="weekSelect"></select>
+          <button class="secondary small" onclick="reloadCurrentWeek()">Tải lại</button>
+        </div>
+
+        <label for="eventDate">Ngày thi đấu (chỉ Thứ 5 / Thứ 6)</label>
+        <select id="eventDate"></select>
+
+        <label for="pairCount">Số cặp cần ghép</label>
+        <input id="pairCount" type="number" min="1" step="1" value="5" />
+
+        <label for="zaloLink">Link nhóm Zalo (sẽ nhập khi gửi)</label>
+        <input id="zaloLink" type="url" placeholder="https://zalo.me/g/your-group" />
+
+        <label for="subject">Tiêu đề email</label>
+        <input id="subject" type="text" />
+
+        <label for="message">Nội dung bổ sung</label>
+        <textarea id="message"></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="secondary" onclick="savePriorities()">Lưu ưu tiên tuần này</button>
+        <button class="secondary" onclick="suggestSelection()">Gợi ý chọn thủ công</button>
+        <button class="secondary" onclick="pairByRank()">Ghép cặp đồng rank</button>
+        <button class="secondary" onclick="markPaidManual()">Cập nhật đã thanh toán</button>
+        <button class="primary" onclick="sendSelected()">Gửi mail đã chọn</button>
+      </div>
+
+      <div id="status" class="status">Đang tải dữ liệu...</div>
+      <div class="payment-toolbar" id="paymentToolbar">
+        <span class="toolbar-label">Lọc thanh toán:</span>
+        <button type="button" class="filter-chip active" data-filter="ALL" onclick="setPaymentFilter('ALL')">Tất cả</button>
+        <button type="button" class="filter-chip" data-filter="REQUIRES_PAYMENT" onclick="setPaymentFilter('REQUIRES_PAYMENT')">Cần đóng phí</button>
+        <button type="button" class="filter-chip" data-filter="PAID" onclick="setPaymentFilter('PAID')">Đã thanh toán</button>
+        <button type="button" class="filter-chip" data-filter="PENDING" onclick="setPaymentFilter('PENDING')">Chưa thanh toán</button>
+        <button type="button" class="filter-chip" data-filter="FAILED" onclick="setPaymentFilter('FAILED')">Thất bại</button>
+        <button type="button" class="filter-chip" data-filter="NO_FEE" onclick="setPaymentFilter('NO_FEE')">Miễn phí</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="requestTable">
+          <thead>
+            <tr>
+              <th class="center">Chọn</th>
+              <th class="center">Ưu tiên</th>
+              <th>Ingame</th>
+              <th>Email</th>
+              <th>Rank</th>
+              <th class="center">Đóng phí</th>
+              <th class="center">Thanh toán</th>
+              <th class="center">Số lần được chọn</th>
+              <th>Đăng ký lúc</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="zaloModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="zaloModalTitle">
+      <div class="modal-card">
+        <h3 id="zaloModalTitle" class="modal-title">Nhập link nhóm Zalo</h3>
+        <p class="modal-desc">Hãy dán link nhóm Zalo để chèn vào email gửi cho người đã được chọn.</p>
+        <input id="zaloModalInput" type="url" placeholder="https://zalo.me/g/your-group" />
+        <div class="modal-actions">
+          <button class="ghost" onclick="cancelZaloModal()">Hủy</button>
+          <button class="primary" onclick="confirmZaloModal()">Xác nhận gửi</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pairModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="pairModalTitle">
+      <div class="modal-card large">
+        <h3 id="pairModalTitle" class="modal-title">Kết quả ghép cặp đồng rank</h3>
+        <p id="pairModalSummary" class="modal-desc"></p>
+        <div id="pairModalBody" class="pair-content"></div>
+        <div class="modal-actions">
+          <button class="primary" onclick="closePairModal()">Đóng</button>
+          <button class="ghost" onclick="reloadCurrentWeek()">Tải lại danh sách</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var state = {
+        activeWeek: '',
+        weeks: [],
+        requests: [],
+        eventDateOptions: [],
+        defaultSubject: '',
+        defaultMessage: '',
+        paymentFilter: 'ALL',
+        autoRefreshTimer: null,
+        autoRefreshIntervalMs: 20000,
+        autoRefreshRunning: false
+      };
+
+      var zaloModalResolver = null;
+
+      document.addEventListener('DOMContentLoaded', function() {
+        startAutoRefresh();
+        loadDashboard();
+      });
+
+      function startAutoRefresh() {
+        stopAutoRefresh();
+        state.autoRefreshTimer = window.setInterval(function() {
+          refreshPaymentStateSilently();
+        }, state.autoRefreshIntervalMs);
+      }
+
+      function stopAutoRefresh() {
+        if (state.autoRefreshTimer) {
+          window.clearInterval(state.autoRefreshTimer);
+          state.autoRefreshTimer = null;
+        }
+      }
+
+      function captureTableUiState() {
+        var snapshot = {};
+        document.querySelectorAll('#requestTable tbody tr[data-email]').forEach(function(row) {
+          var email = normalizeEmailKey(row.getAttribute('data-email'));
+          if (!email) {
+            return;
+          }
+          snapshot[email] = {
+            picked: !!(row.querySelector('.pick') && row.querySelector('.pick').checked),
+            priority: !!(row.querySelector('.priority') && row.querySelector('.priority').checked)
+          };
+        });
+        return snapshot;
+      }
+
+      function restoreTableUiState(snapshot) {
+        var map = snapshot || {};
+        document.querySelectorAll('#requestTable tbody tr[data-email]').forEach(function(row) {
+          var email = normalizeEmailKey(row.getAttribute('data-email'));
+          var stateRow = map[email];
+          if (!stateRow) {
+            return;
+          }
+          if (row.querySelector('.pick')) {
+            row.querySelector('.pick').checked = !!stateRow.picked;
+          }
+          if (row.querySelector('.priority')) {
+            row.querySelector('.priority').checked = !!stateRow.priority;
+          }
+        });
+      }
+
+      function refreshPaymentStateSilently() {
+        if (state.autoRefreshRunning) {
+          return;
+        }
+        if (!state.activeWeek) {
+          return;
+        }
+
+        var zaloModal = document.getElementById('zaloModal');
+        var pairModal = document.getElementById('pairModal');
+        if (zaloModal && !zaloModal.classList.contains('hidden')) {
+          return;
+        }
+        if (pairModal && !pairModal.classList.contains('hidden')) {
+          return;
+        }
+
+        state.autoRefreshRunning = true;
+        var snapshot = captureTableUiState();
+
+        google.script.run
+          .withSuccessHandler(function(rows) {
+            state.requests = Array.isArray(rows) ? rows : [];
+            renderRows();
+            restoreTableUiState(snapshot);
+            state.autoRefreshRunning = false;
+          })
+          .withFailureHandler(function() {
+            state.autoRefreshRunning = false;
+          })
+          .getWeekRequests(state.activeWeek);
+      }
+
+      function setStatus(text, isError) {
+        var el = document.getElementById('status');
+        el.textContent = text;
+        if (isError) {
+          el.classList.add('error');
+        } else {
+          el.classList.remove('error');
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function loadDashboard(weekKey) {
+        setStatus('Đang đồng bộ và tải dữ liệu...');
+        google.script.run
+          .withSuccessHandler(function(data) {
+            state.weeks = data.weeks || [];
+            state.requests = data.requests || [];
+            state.activeWeek = data.activeWeek || '';
+            state.eventDateOptions = data.eventDateOptions || [];
+            state.defaultSubject = data.defaultSubject || '';
+            state.defaultMessage = data.defaultMessage || '';
+
+            renderWeekOptions();
+            renderEventDateOptions(data.defaultEventDate || '');
+
+            if (!document.getElementById('subject').value) {
+              document.getElementById('subject').value = state.defaultSubject;
+            }
+            if (!document.getElementById('message').value) {
+              document.getElementById('message').value = state.defaultMessage;
+            }
+
+            renderRows();
+            setStatus('Đã tải xong. Có ' + state.requests.length + ' đăng ký trong tuần này.');
+          })
+          .withFailureHandler(handleError)
+          .getDashboardData(weekKey || '');
+      }
+
+      function renderWeekOptions() {
+        var select = document.getElementById('weekSelect');
+        var html = '';
+
+        if (!state.weeks.length) {
+          select.innerHTML = '<option value="">Không có dữ liệu tuần</option>';
+          return;
+        }
+
+        state.weeks.forEach(function(week) {
+          var selected = week.key === state.activeWeek ? ' selected' : '';
+          html += '<option value="' + escapeHtml(week.key) + '"' + selected + '>' + escapeHtml(week.label) + '</option>';
+        });
+
+        select.innerHTML = html;
+        select.onchange = function() {
+          reloadCurrentWeek();
+        };
+      }
+
+      function renderEventDateOptions(preferredValue) {
+        var select = document.getElementById('eventDate');
+        var options = state.eventDateOptions || [];
+
+        if (!options.length) {
+          select.innerHTML = '<option value="">Không có ngày thi đấu</option>';
+          return;
+        }
+
+        var hasPreferred = false;
+        var html = '';
+        options.forEach(function(item, index) {
+          var selected = '';
+          if (preferredValue && item.value === preferredValue) {
+            selected = ' selected';
+            hasPreferred = true;
+          } else if (!preferredValue && index === 0) {
+            selected = ' selected';
+          }
+          html += '<option value="' + escapeHtml(item.value) + '"' + selected + '>' + escapeHtml(item.label) + '</option>';
+        });
+
+        select.innerHTML = html;
+        if (preferredValue && !hasPreferred) {
+          select.value = options[0].value;
+        }
+      }
+
+      function reloadCurrentWeek() {
+        var week = document.getElementById('weekSelect').value;
+        if (!week) {
+          state.requests = [];
+          state.eventDateOptions = [];
+          renderRows();
+          renderEventDateOptions('');
+          setStatus('Không có tuần nào để tải.', true);
+          return;
+        }
+
+        loadDashboard(week);
+      }
+
+      function setPaymentFilter(filterCode) {
+        state.paymentFilter = String(filterCode || 'ALL').toUpperCase();
+        updatePaymentToolbarState();
+        renderRows();
+      }
+
+      function updatePaymentToolbarState() {
+        var active = String(state.paymentFilter || 'ALL').toUpperCase();
+        document.querySelectorAll('#paymentToolbar .filter-chip').forEach(function(btn) {
+          var code = String(btn.getAttribute('data-filter') || 'ALL').toUpperCase();
+          if (code === active) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+
+      function getPaymentFilterCode(row) {
+        if (!row || !row.paymentRequired) {
+          return 'NO_FEE';
+        }
+
+        var code = String(row.paymentStatusCode || '').toUpperCase();
+        if (code === 'PAID' || code === 'LINK_SENT') {
+          return 'PAID';
+        }
+        if (code === 'FAILED') {
+          return 'FAILED';
+        }
+        return 'PENDING';
+      }
+
+      function isRowVisibleByPaymentFilter(row) {
+        var filterCode = String(state.paymentFilter || 'ALL').toUpperCase();
+        if (filterCode === 'ALL') {
+          return true;
+        }
+        if (filterCode === 'REQUIRES_PAYMENT') {
+          return !!row.paymentRequired;
+        }
+        return getPaymentFilterCode(row) === filterCode;
+      }
+
+      function getPaymentChipClass(row) {
+        var code = getPaymentFilterCode(row);
+        if (code === 'PAID') {
+          return 'pay-chip pay-chip--paid';
+        }
+        if (code === 'FAILED') {
+          return 'pay-chip pay-chip--failed';
+        }
+        if (code === 'PENDING') {
+          return 'pay-chip pay-chip--pending';
+        }
+        return 'pay-chip pay-chip--none';
+      }
+
+      function getPaymentStatusText(row) {
+        if (!row.paymentRequired) {
+          return '-';
+        }
+        return row.paymentStatus || 'Chưa thanh toán';
+      }
+
+      function normalizeEmailKey(value) {
+        return String(value || '').trim().toLowerCase();
+      }
+
+      function applyManualPaymentResultToState(result) {
+        var paidMap = {};
+        var linkedMap = {};
+        var paidList = Array.isArray(result && result.paidUpdatedEmails) ? result.paidUpdatedEmails : [];
+        var linkedList = Array.isArray(result && result.sentGroupEmails) ? result.sentGroupEmails : [];
+        var alreadyPaidList = Array.isArray(result && result.alreadyPaidEmails) ? result.alreadyPaidEmails : [];
+        var skippedAlreadySentList = Array.isArray(result && result.skippedAlreadySentEmails) ? result.skippedAlreadySentEmails : [];
+
+        paidList.forEach(function(email) {
+          paidMap[normalizeEmailKey(email)] = true;
+        });
+        linkedList.forEach(function(email) {
+          var key = normalizeEmailKey(email);
+          paidMap[key] = true;
+          linkedMap[key] = true;
+        });
+        alreadyPaidList.forEach(function(email) {
+          paidMap[normalizeEmailKey(email)] = true;
+        });
+        skippedAlreadySentList.forEach(function(email) {
+          paidMap[normalizeEmailKey(email)] = true;
+        });
+
+        if (!Object.keys(paidMap).length) {
+          return;
+        }
+
+        state.requests.forEach(function(row) {
+          var key = normalizeEmailKey(row.email);
+          if (!paidMap[key]) {
+            return;
+          }
+          row.paymentRequired = true;
+          row.paymentStatusCode = linkedMap[key] ? 'LINK_SENT' : 'PAID';
+          row.paymentStatus = 'Đã thanh toán';
+        });
+
+        renderRows();
+      }
+
+      function renderRows() {
+        var tbody = document.querySelector('#requestTable tbody');
+        if (!state.requests.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="muted">Chưa có đăng ký trong tuần này.</td></tr>';
+          return;
+        }
+
+        updatePaymentToolbarState();
+        var visibleRows = state.requests.filter(isRowVisibleByPaymentFilter);
+        if (!visibleRows.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="muted">Không có dữ liệu phù hợp bộ lọc thanh toán.</td></tr>';
+          return;
+        }
+
+        var html = '';
+        visibleRows.forEach(function(row) {
+          var paymentText = getPaymentStatusText(row);
+          var paymentClass = getPaymentChipClass(row);
+          html += '' +
+            '<tr data-email="' + escapeHtml(row.email) + '"' +
+            ' data-name="' + escapeHtml(row.name || '') + '"' +
+            ' data-ingame="' + escapeHtml(row.ingame || row.name || '') + '"' +
+            ' data-rank="' + escapeHtml(row.rankNormalized || 'Không rõ') + '"' +
+            ' data-payment-required="' + (row.paymentRequired ? '1' : '0') + '"' +
+            ' data-payment-status-code="' + escapeHtml(row.paymentStatusCode || '') + '"' +
+            ' data-payment-status="' + escapeHtml(row.paymentStatus || '') + '"' +
+            ' data-count="' + Number(row.selectedCount || 0) + '">' +
+            '  <td class="center"><input type="checkbox" class="pick" /></td>' +
+            '  <td class="center"><input type="checkbox" class="priority" ' + (row.priority ? 'checked' : '') + ' /></td>' +
+            '  <td>' + escapeHtml(row.ingame || row.name || '') + '</td>' +
+            '  <td>' + escapeHtml(row.email || '') + '</td>' +
+            '  <td>' + escapeHtml(row.rankNormalized || 'Không rõ') + '</td>' +
+            '  <td class="center"><span class="' + (row.paymentRequired ? 'pay-chip pay-chip--pending' : 'pay-chip pay-chip--none') + '">' + (row.paymentRequired ? 'Có' : 'Không') + '</span></td>' +
+            '  <td class="center"><span class="' + paymentClass + '">' + escapeHtml(paymentText) + '</span></td>' +
+            '  <td class="center count-cell">' + Number(row.selectedCount || 0) + '</td>' +
+            '  <td>' + escapeHtml(row.requestedAt || '') + '</td>' +
+            '</tr>';
+        });
+
+        tbody.innerHTML = html;
+      }
+
+      function collectPriorityItems() {
+        var rows = document.querySelectorAll('#requestTable tbody tr[data-email]');
+        var items = [];
+
+        rows.forEach(function(row) {
+          items.push({
+            email: row.getAttribute('data-email'),
+            name: row.getAttribute('data-name'),
+            priority: row.querySelector('.priority').checked
+          });
+        });
+
+        return items;
+      }
+
+      function savePriorities() {
+        var items = collectPriorityItems();
+        if (!items.length) {
+          setStatus('Không có dữ liệu để lưu ưu tiên.', true);
+          return;
+        }
+
+        var weekKey = document.getElementById('weekSelect').value;
+        if (!weekKey) {
+          setStatus('Bạn cần chọn tuần trước khi lưu ưu tiên.', true);
+          return;
+        }
+
+        setStatus('Đang lưu ưu tiên...');
+        google.script.run
+          .withSuccessHandler(function(result) {
+            setStatus(
+              'Đã lưu ưu tiên cho ' + Number(result.updated || 0) +
+              ' người. Đang ưu tiên: ' + Number(result.prioritized || 0) + ' người.'
+            );
+            reloadCurrentWeek();
+          })
+          .withFailureHandler(handleError)
+          .savePriorities({ weekKey: weekKey, items: items });
+      }
+
+      function suggestSelection() {
+        var pairCount = Number(document.getElementById('pairCount').value || 0);
+        if (pairCount < 1) {
+          setStatus('Số cặp cần ghép phải lớn hơn 0.', true);
+          return;
+        }
+
+        var slotCount = pairCount * 2;
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#requestTable tbody tr[data-email]'));
+        if (!rows.length) {
+          setStatus('Không có người nào để gợi ý.', true);
+          return;
+        }
+
+        rows.sort(function(a, b) {
+          var aPriority = a.querySelector('.priority').checked ? 1 : 0;
+          var bPriority = b.querySelector('.priority').checked ? 1 : 0;
+          if (bPriority !== aPriority) {
+            return bPriority - aPriority;
+          }
+
+          var aCount = Number(a.getAttribute('data-count') || 0);
+          var bCount = Number(b.getAttribute('data-count') || 0);
+          if (aCount !== bCount) {
+            return aCount - bCount;
+          }
+
+          var aName = (a.getAttribute('data-ingame') || '').toLowerCase();
+          var bName = (b.getAttribute('data-ingame') || '').toLowerCase();
+          return aName.localeCompare(bName);
+        });
+
+        var selectedEmails = {};
+        rows.slice(0, slotCount).forEach(function(row) {
+          selectedEmails[row.getAttribute('data-email')] = true;
+        });
+
+        applySelectedEmails(Object.keys(selectedEmails));
+        setStatus('Đã gợi ý chọn ' + Math.min(slotCount, rows.length) + ' người theo ưu tiên + công bằng.');
+      }
+
+      function pairByRank() {
+        var weekKey = document.getElementById('weekSelect').value;
+        if (!weekKey) {
+          setStatus('Bạn cần chọn tuần trước khi ghép cặp.', true);
+          return;
+        }
+
+        var pairCount = Number(document.getElementById('pairCount').value || 0);
+        if (pairCount < 1) {
+          setStatus('Số cặp cần ghép phải lớn hơn 0.', true);
+          return;
+        }
+
+        var eventDate = document.getElementById('eventDate').value;
+        if (!eventDate) {
+          setStatus('Bạn cần chọn ngày thi đấu (Thứ 5 hoặc Thứ 6).', true);
+          return;
+        }
+
+        setStatus('Đang ghép cặp đồng rank...');
+        google.script.run
+          .withSuccessHandler(function(result) {
+            applySelectedEmails(result.selectedEmails || []);
+            updateCountCells(result.countedEmails || []);
+            showPairModal(result);
+            setStatus(result.message || ('Đã ghép được ' + Number(result.actualPairs || 0) + ' cặp.'));
+          })
+          .withFailureHandler(handleError)
+          .suggestPairsByRank({
+            weekKey: weekKey,
+            pairCount: pairCount,
+            eventDate: eventDate
+          });
+      }
+
+      function applySelectedEmails(emails) {
+        var selectedMap = {};
+        (emails || []).forEach(function(email) {
+          selectedMap[String(email || '').toLowerCase()] = true;
+        });
+
+        document.querySelectorAll('#requestTable tbody tr[data-email]').forEach(function(row) {
+          var email = String(row.getAttribute('data-email') || '').toLowerCase();
+          row.querySelector('.pick').checked = !!selectedMap[email];
+        });
+      }
+
+      function updateCountCells(countedEmails) {
+        var countedMap = {};
+        (countedEmails || []).forEach(function(email) {
+          countedMap[String(email || '').toLowerCase()] = true;
+        });
+
+        document.querySelectorAll('#requestTable tbody tr[data-email]').forEach(function(row) {
+          var email = String(row.getAttribute('data-email') || '').toLowerCase();
+          if (!countedMap[email]) {
+            return;
+          }
+
+          var oldCount = Number(row.getAttribute('data-count') || 0);
+          var newCount = oldCount + 1;
+          row.setAttribute('data-count', String(newCount));
+
+          var cell = row.querySelector('.count-cell');
+          if (cell) {
+            cell.textContent = String(newCount);
+          }
+        });
+      }
+
+      function showPairModal(result) {
+        var modal = document.getElementById('pairModal');
+        var summaryEl = document.getElementById('pairModalSummary');
+        var bodyEl = document.getElementById('pairModalBody');
+
+        var pairs = result && result.pairs ? result.pairs : [];
+        var unpaired = result && result.unpaired ? result.unpaired : [];
+        var requestedPairs = Number(result && result.requestedPairs || 0);
+        var actualPairs = Number(result && result.actualPairs || 0);
+        var missingPairs = Number(result && result.missingPairs || 0);
+        var eventDate = result && result.eventDate ? result.eventDate : '';
+        var countAdded = Number(result && result.countAdded || 0);
+        var countSkipped = Number(result && result.countSkipped || 0);
+
+        var summary = 'Ngày thi đấu: ' + (eventDate || 'N/A') +
+          ' | Yêu cầu: ' + requestedPairs +
+          ' cặp | Ghép được: ' + actualPairs + ' cặp';
+        if (missingPairs > 0) {
+          summary += ' | Thiếu: ' + missingPairs + ' cặp';
+        }
+        summary += ' | Đã lưu số lần chọn: +' + countAdded;
+        if (countSkipped > 0) {
+          summary += ' | Bỏ qua: ' + countSkipped;
+        }
+        summaryEl.textContent = summary;
+
+        var html = '';
+        if (pairs.length) {
+          html += '<table><thead><tr>' +
+            '<th>Cặp</th><th>Người 1</th><th>Rank</th><th>Người 2</th>' +
+            '</tr></thead><tbody>';
+          pairs.forEach(function(pair) {
+            var aName = pair.a && (pair.a.ingame || pair.a.name) ? (pair.a.ingame || pair.a.name) : '';
+            var bName = pair.b && (pair.b.ingame || pair.b.name) ? (pair.b.ingame || pair.b.name) : '';
+            html += '<tr>' +
+              '<td class="center">Cặp ' + Number(pair.pairNo || 0) + '</td>' +
+              '<td>' + escapeHtml(aName) + '<br><span class="muted">' + escapeHtml(pair.a ? pair.a.email : '') + '</span></td>' +
+              '<td class="center">' + escapeHtml(pair.rank || 'Không rõ') + '</td>' +
+              '<td>' + escapeHtml(bName) + '<br><span class="muted">' + escapeHtml(pair.b ? pair.b.email : '') + '</span></td>' +
+              '</tr>';
+          });
+          html += '</tbody></table>';
+        } else {
+          html += '<div class="muted" style="padding:8px">Không tạo được cặp nào.</div>';
+        }
+
+        if (unpaired.length) {
+          html += '<div style="padding:8px;border-top:1px solid #e5e7eb"><strong>Danh sách chưa ghép được</strong><br>';
+          unpaired.forEach(function(item) {
+            var name = item.ingame || item.name || '';
+            html += '<div style="margin-top:6px">' +
+              escapeHtml(name) + ' - ' +
+              escapeHtml(item.rank || 'Không rõ') + ' - ' +
+              '<span class="muted">' + escapeHtml(item.email || '') + '</span>' +
+              '</div>';
+          });
+          html += '</div>';
+        }
+
+        bodyEl.innerHTML = html;
+        modal.classList.remove('hidden');
+      }
+
+      function closePairModal() {
+        document.getElementById('pairModal').classList.add('hidden');
+      }
+
+      function getSelectedRows() {
+        var selected = [];
+        document.querySelectorAll('#requestTable tbody tr[data-email]').forEach(function(row) {
+          if (!row.querySelector('.pick').checked) {
+            return;
+          }
+
+          selected.push({
+            email: row.getAttribute('data-email'),
+            name: row.getAttribute('data-name'),
+            ingame: row.getAttribute('data-ingame'),
+            rank: row.getAttribute('data-rank'),
+            paymentRequired: row.getAttribute('data-payment-required') === '1',
+            paymentStatusCode: row.getAttribute('data-payment-status-code') || '',
+            paymentStatus: row.getAttribute('data-payment-status') || '',
+            priority: row.querySelector('.priority').checked
+          });
+        });
+
+        return selected;
+      }
+
+      function markPaidManual() {
+        var selected = getSelectedRows();
+        if (!selected.length) {
+          setStatus('Bạn chưa tick người nào để cập nhật thanh toán.', true);
+          return;
+        }
+
+        var candidates = selected.filter(function(item) {
+          if (!item.paymentRequired) {
+            return false;
+          }
+
+          var code = String(item.paymentStatusCode || '').toUpperCase();
+          return code !== 'PAID' && code !== 'LINK_SENT';
+        });
+        if (!candidates.length) {
+          setStatus('Danh sách đã chọn không có ai thuộc diện cần thanh toán.', true);
+          return;
+        }
+
+        var eventDate = document.getElementById('eventDate').value;
+        if (!eventDate) {
+          setStatus('Bạn cần chọn ngày thi đấu (Thứ 5 hoặc Thứ 6).', true);
+          return;
+        }
+
+        var confirmed = window.confirm(
+          'Bạn chắc chắn muốn cập nhật thanh toán thủ công cho ' + candidates.length +
+          ' người đã tick? Hệ thống chỉ cập nhật trạng thái thanh toán, không gửi mail.'
+        );
+        if (!confirmed) {
+          setStatus('Đã hủy cập nhật thanh toán thủ công.');
+          return;
+        }
+
+        var payload = {
+          weekKey: document.getElementById('weekSelect').value,
+          eventDate: eventDate,
+          selected: candidates
+        };
+
+        setStatus('Đang cập nhật thanh toán thủ công cho ' + candidates.length + ' người...');
+        google.script.run
+          .withSuccessHandler(function(result) {
+            applyManualPaymentResultToState(result);
+
+            var msg = 'Cập nhật thanh toán thủ công ngày ' + result.eventDate +
+              '. Đủ điều kiện: ' + Number(result.candidates || 0) +
+              ', Đã đánh dấu đã thanh toán: ' + Number(result.paidUpdated || 0) + '.';
+            if (Number(result.skippedAlreadySent || 0) > 0) {
+              msg += ' Đã ở trạng thái đã thanh toán trước đó: ' + Number(result.skippedAlreadySent || 0) + '.';
+            }
+            if (Number(result.skippedNoPaymentNeeded || 0) > 0) {
+              msg += ' Không thuộc diện đóng phí: ' + Number(result.skippedNoPaymentNeeded || 0) + '.';
+            }
+
+            setStatus(msg, false);
+            window.alert(
+              'Đã cập nhật thanh toán thủ công.\n' +
+              'Số người được đánh dấu đã thanh toán: ' + Number(result.paidUpdated || 0)
+            );
+            setTimeout(function() {
+              reloadCurrentWeek();
+            }, 700);
+          })
+          .withFailureHandler(handleError)
+          .markPaymentsPaidManual(payload);
+      }
+
+      function openZaloModal(initialValue, onDone) {
+        var modal = document.getElementById('zaloModal');
+        var input = document.getElementById('zaloModalInput');
+
+        zaloModalResolver = onDone;
+        input.value = initialValue || '';
+        modal.classList.remove('hidden');
+
+        setTimeout(function() {
+          input.focus();
+          input.select();
+        }, 20);
+      }
+
+      function closeZaloModal() {
+        document.getElementById('zaloModal').classList.add('hidden');
+      }
+
+      function confirmZaloModal() {
+        var link = String(document.getElementById('zaloModalInput').value || '').trim();
+        if (!link) {
+          setStatus('Bạn cần nhập link nhóm Zalo để gửi mail.', true);
+          return;
+        }
+
+        document.getElementById('zaloLink').value = link;
+        closeZaloModal();
+
+        if (typeof zaloModalResolver === 'function') {
+          var done = zaloModalResolver;
+          zaloModalResolver = null;
+          done(link);
+        }
+      }
+
+      function cancelZaloModal() {
+        closeZaloModal();
+        if (typeof zaloModalResolver === 'function') {
+          var done = zaloModalResolver;
+          zaloModalResolver = null;
+          done('');
+        }
+      }
+
+      function sendSelected() {
+        var selected = getSelectedRows();
+        if (!selected.length) {
+          setStatus('Bạn chưa tick người nào để gửi mail.', true);
+          return;
+        }
+
+        var eventDate = document.getElementById('eventDate').value;
+        if (!eventDate) {
+          setStatus('Bạn cần chọn ngày thi đấu (Thứ 5 hoặc Thứ 6).', true);
+          return;
+        }
+
+        var defaultZalo = String(document.getElementById('zaloLink').value || '').trim();
+
+        openZaloModal(defaultZalo, function(zaloLink) {
+          if (!zaloLink) {
+            setStatus('Đã hủy gửi mail.');
+            return;
+          }
+
+          var payload = {
+            weekKey: document.getElementById('weekSelect').value,
+            eventDate: eventDate,
+            zaloLink: zaloLink,
+            subject: document.getElementById('subject').value,
+            message: document.getElementById('message').value,
+            selected: selected
+          };
+
+          setStatus('Đang gửi mail cho ' + selected.length + ' người...');
+          google.script.run
+            .withSuccessHandler(function(result) {
+              var msg = 'Gửi xong ngày ' + result.eventDate + '. Đã gửi: ' + result.sent +
+                ', Bỏ qua: ' + result.skipped + ', Tổng đã chọn: ' + result.total + '.';
+              msg += ' Link nhóm gửi ngay: ' + Number(result.sentGroup || 0) + '.';
+              msg += ' Mail thanh toán: ' + Number(result.sentPayment || 0) + '.';
+              if (Number(result.sentPayment || 0) > 0) {
+                msg += ' Người đóng phí sẽ tự nhận mail link nhóm sau khi hệ thống ghi nhận thanh toán.';
+              }
+              msg += ' Đã lưu số lần chọn: +' + Number(result.countAdded || 0) + '.';
+              if (Number(result.countSkipped || 0) > 0) {
+                msg += ' Bỏ qua đếm: ' + Number(result.countSkipped || 0) + '.';
+              }
+              setStatus(msg);
+
+              var sent = Number(result.sent || 0);
+              var total = Number(result.total || 0);
+              var popupText = sent === total
+                ? 'Đã gửi mail cho toàn bộ người đã chọn.'
+                : ('Đã gửi mail ' + sent + '/' + total + ' người. Vui lòng xem trạng thái để biết chi tiết.');
+              window.alert(popupText);
+
+              reloadCurrentWeek();
+            })
+            .withFailureHandler(handleError)
+            .sendSelectionEmails(payload);
+        });
+      }
+
+      function handleError(err) {
+        var msg = (err && err.message) ? err.message : 'Có lỗi xảy ra, vui lòng thử lại.';
+        setStatus(msg, true);
+      }
+    </script>
+  </body>
+</html>
