@@ -1,0 +1,17 @@
+name = "quanlylophoc-api"
+main = "src/worker.mjs"
+compatibility_date = "2026-04-21"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[vars]
+APP_TIMEZONE = "Asia/Ho_Chi_Minh"
+PAYOS_API_BASE = "https://api-merchant.payos.vn"
+PAYMENT_CODE_PREFIX = "GE"
+PORT = "3000"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "REPLACE_WITH_HYPERDRIVE_ID"

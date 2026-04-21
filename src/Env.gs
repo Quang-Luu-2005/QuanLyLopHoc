@@ -9,7 +9,7 @@ function getEnv_() {
     TARGET_SPREADSHEET_ID: '1lzhf6hx1Qc95ugAk6DXL__qmI11gkbULXZEZuH6Q0X4',
     TARGET_SPREADSHEET_URL: 'https://docs.google.com/spreadsheets/d/1lzhf6hx1Qc95ugAk6DXL__qmI11gkbULXZEZuH6Q0X4/edit?usp=sharing',
 
-    API_BASE_URL: '',
+    API_BASE_URL: 'https://quanlylophoc-api.<subdomain>.workers.dev',
     INTERNAL_API_KEY: '',
     API_TIMEOUT_MS: 20000,
 

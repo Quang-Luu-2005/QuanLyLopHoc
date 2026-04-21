@@ -3,16 +3,21 @@ const { Pool } = require('pg');
 
 function toIntSafe(value, fallback) {
   const num = Number(value);
-  if (!num || Number.isNaN(num)) {
+  if (!num || Number.isNaN(num) || num < 0) {
     return fallback;
   }
   return Math.floor(num);
 }
 
 function buildPoolConfigFromEnv() {
-  const connectionString = String(process.env.DATABASE_URL || '').trim();
+  const connectionString = String(process.env.DATABASE_URL || process.env.HYPERDRIVE_CONNECTION_STRING || '').trim();
   if (connectionString) {
-    return { connectionString };
+    return {
+      connectionString,
+      max: toIntSafe(process.env.PG_POOL_MAX, 8),
+      idleTimeoutMillis: toIntSafe(process.env.PG_IDLE_TIMEOUT_MS, 10000),
+      connectionTimeoutMillis: toIntSafe(process.env.PG_CONN_TIMEOUT_MS, 10000)
+    };
   }
 
   const host = String(process.env.DB_HOST || '').trim();
@@ -30,7 +35,10 @@ function buildPoolConfigFromEnv() {
     port,
     database,
     user,
-    password
+    password,
+    max: toIntSafe(process.env.PG_POOL_MAX, 8),
+    idleTimeoutMillis: toIntSafe(process.env.PG_IDLE_TIMEOUT_MS, 10000),
+    connectionTimeoutMillis: toIntSafe(process.env.PG_CONN_TIMEOUT_MS, 10000)
   };
 }
 
@@ -39,7 +47,7 @@ const basePoolConfig = buildPoolConfigFromEnv();
 if (!basePoolConfig) {
   // Keep process alive for local lint/compile, but runtime requests will fail fast when query executes.
   // eslint-disable-next-line no-console
-  console.warn('[db] Missing PostgreSQL env config (DATABASE_URL or DB_HOST/DB_PORT/DB_NAME/DB_USER).');
+  console.warn('[db] Missing PostgreSQL env config (DATABASE_URL/HYPERDRIVE_CONNECTION_STRING or DB_HOST/DB_PORT/DB_NAME/DB_USER).');
 }
 
 const pool = new Pool(
