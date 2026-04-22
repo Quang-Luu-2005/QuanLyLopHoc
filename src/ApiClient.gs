@@ -3,6 +3,9 @@
   if (!baseUrl) {
     throw new Error('Chưa cấu hình API_BASE_URL (Script Properties hoặc Env.gs).');
   }
+  if (baseUrl.indexOf('<subdomain>') !== -1 || baseUrl.indexOf('your-subdomain') !== -1) {
+    throw new Error('API_BASE_URL đang là giá trị mẫu, chưa phải domain backend thật.');
+  }
   return {
     baseUrl: baseUrl.replace(/\/+$/, ''),
     internalApiKey: String((CONFIG.API && CONFIG.API.INTERNAL_API_KEY) || '').trim(),
@@ -53,12 +56,17 @@ function apiRequest_(method, path, payload, query, options) {
   var cfg = ensureApiConfig_();
   var requestOptions = options || {};
   var url = buildApiUrl_(path, query);
+  var normalizedPath = String(path || '').trim();
 
   var headers = {
     Accept: 'application/json'
   };
 
   var useInternalKey = requestOptions.useInternalKey !== false;
+  var isInternalPath = normalizedPath.indexOf('/internal/') === 0 || normalizedPath === '/internal';
+  if (useInternalKey && isInternalPath && !cfg.internalApiKey) {
+    throw new Error('Thiếu INTERNAL_API_KEY để gọi API nội bộ: ' + normalizedPath);
+  }
   if (useInternalKey && cfg.internalApiKey) {
     headers['x-internal-api-key'] = cfg.internalApiKey;
   }
@@ -82,7 +90,7 @@ function apiRequest_(method, path, payload, query, options) {
 
   if (status < 200 || status >= 300 || body.ok === false) {
     var message = String(body.error || body.message || ('HTTP ' + status));
-    throw new Error('Gọi API thất bại: ' + message);
+    throw new Error('Gọi API thất bại: ' + message + ' | URL: ' + url + ' | HTTP: ' + status);
   }
 
   return body;

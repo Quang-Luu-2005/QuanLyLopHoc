@@ -41,7 +41,25 @@ async function saveWeekPriorities(session, weekKey, emails) {
   return inserted;
 }
 
+async function deleteWeekPriorityByEmail(session, weekKey, email) {
+  await connect();
+  const key = String(weekKey || '');
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!key || !normalizedEmail) {
+    return 0;
+  }
+
+  const opts = {};
+  if (session) opts.session = session;
+  const result = await WeeklyPriority.deleteMany(
+    { weekKey: key, email: normalizedEmail },
+    opts
+  );
+  return Number(result.deletedCount || 0);
+}
+
 module.exports = {
   listWeekPriorities,
-  saveWeekPriorities
+  saveWeekPriorities,
+  deleteWeekPriorityByEmail
 };

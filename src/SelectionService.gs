@@ -230,6 +230,23 @@ function sendSelectionEmails(payload) {
         needPayment: true
       });
       var effectivePaymentCode = String(paymentRes.paymentCode || paymentCode);
+      var orderCode = String(paymentRes.orderCode || '').trim();
+      if (orderCode) {
+        savePayosMailContext_(orderCode, {
+          paymentId: String(paymentRes.paymentId || '').trim(),
+          paymentCode: effectivePaymentCode,
+          email: email,
+          name: name,
+          ingameName: ingame || name,
+          weekKey: weekKey,
+          eventDate: eventDateKey,
+          groupLink: zaloLink,
+          supportMessage: customMessage,
+          checkoutUrl: String(paymentRes.checkoutUrl || '').trim(),
+          qrCode: String(paymentRes.qrCode || '').trim(),
+          status: 'PENDING'
+        });
+      }
       var qrBlob = buildQrImageBlob_(paymentRes.qrCode, paymentRes.checkoutUrl, effectivePaymentCode);
       var mailPayload = {
         to: email,

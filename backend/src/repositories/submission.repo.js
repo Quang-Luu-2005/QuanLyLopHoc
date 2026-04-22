@@ -75,6 +75,7 @@ async function listWeekLatestSubmissions(weekKey) {
 
   const submissions = await FormSubmission.find({ weekKey: String(weekKey) })
     .populate('playerId', 'email ingameName isStudent highestRank')
+    .populate('availableDateIds', 'playDate')
     .sort({ submittedAt: -1, _id: -1 })
     .lean({ virtuals: true });
 
@@ -103,8 +104,28 @@ async function listWeekLatestSubmissions(weekKey) {
     email: s.playerId?.email,
     ingameName: s.playerId?.ingameName,
     isStudent: s.playerId?.isStudent,
-    highestRank: s.playerId?.highestRank
+    highestRank: s.playerId?.highestRank,
+    availableDates: Array.isArray(s.availableDateIds)
+      ? s.availableDateIds
+        .map((item) => item && item.playDate ? formatDateOnly(item.playDate) : '')
+        .filter(Boolean)
+      : []
   }));
+}
+
+async function deleteWeekSubmissionsByPlayer(session, weekKey, playerId) {
+  await connect();
+  if (!weekKey || !playerId) {
+    return 0;
+  }
+
+  const opts = {};
+  if (session) opts.session = session;
+  const result = await FormSubmission.deleteMany(
+    { weekKey: String(weekKey), playerId },
+    opts
+  );
+  return Number(result.deletedCount || 0);
 }
 
 async function getLatestSubmissionForPlayerWeek(session, playerId, weekKey) {
@@ -125,5 +146,6 @@ module.exports = {
   replaceSubmissionAvailableDates,
   listWeekKeys,
   listWeekLatestSubmissions,
-  getLatestSubmissionForPlayerWeek
+  getLatestSubmissionForPlayerWeek,
+  deleteWeekSubmissionsByPlayer
 };

@@ -50,6 +50,43 @@ router.post('/increment-selection-counts', asyncHandler(async (req, res) => {
   res.json({ ok: true, ...result });
 }));
 
+router.get('/pairing-plan', asyncHandler(async (req, res) => {
+  const weekKey = String(req.query.weekKey || '').trim();
+  const eventDate = String(req.query.eventDate || '').trim();
+  const result = await dashboardService.getPairingPlan(weekKey, eventDate);
+  res.json({ ok: true, weekKey, eventDate, pairing: result });
+}));
+
+router.post('/save-pairing-plan', asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  const result = await dashboardService.savePairingPlan({
+    weekKey: body.weekKey,
+    eventDate: body.eventDate,
+    status: body.status,
+    pairs: body.pairs
+  });
+  res.json({ ok: true, pairing: result });
+}));
+
+router.post('/delete-pair-from-plan', asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  const result = await dashboardService.deletePairFromPairingPlan({
+    weekKey: body.weekKey,
+    eventDate: body.eventDate,
+    pairId: body.pairId
+  });
+  res.json({ ok: true, pairing: result });
+}));
+
+router.post('/remove-week-registration', asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  const result = await dashboardService.removeWeekRegistration({
+    weekKey: body.weekKey,
+    email: body.email
+  });
+  res.json({ ok: true, ...result });
+}));
+
 router.post('/create-payment', asyncHandler(async (req, res) => {
   const result = await paymentService.createPayment(req.body || {});
   res.json({ ok: true, ...result });

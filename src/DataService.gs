@@ -295,6 +295,7 @@ function getWeekRequests_(weekKey) {
       requestedAtEpoch: Number(item.requestedAtEpoch || 0),
       rankRaw: item.rankRaw || '',
       rankNormalized: item.rankNormalized || normalizeFixedRank_(item.rankRaw || ''),
+      availableDates: Array.isArray(item.availableDates) ? item.availableDates : [],
       studentStatusRaw: item.studentStatusRaw || '',
       paymentRequired: !!item.paymentRequired,
       paymentStatusCode: String(item.paymentStatusCode || 'NONE'),

@@ -9,7 +9,7 @@ function onOpen() {
     .addItem('Khởi tạo hệ thống', 'initializeGatherEasy')
     .addItem('Đồng bộ danh sách người chơi', 'syncPlayersManual')
     .addItem('Cài trigger onFormSubmit', 'installTriggers')
-    .addItem('Xử lý thanh toán chờ', 'processPaidPaymentRequests')
+    .addItem('Kiểm tra webhook PayOS', 'processPaidPaymentRequests')
     .addItem('Kiểm tra collect email của Form', 'checkFormEmailSetup')
     .addToUi();
 }
@@ -74,7 +74,7 @@ function installTriggers() {
   }
 
   ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(ss).onFormSubmit().create();
-  ScriptApp.newTrigger('processPaidPaymentMailsFromApi_').timeBased().everyMinutes(1).create();
+  // Mail thứ 2 gửi trực tiếp qua doPost (webhook PayOS), không còn polling từ backend.
   return { ok: true };
 }
 
@@ -83,92 +83,54 @@ function onFormSubmit(e) {
 }
 
 function processPaidPaymentMailsFromApi_() {
-  var ready = apiGet_('/internal/ready-group-mails');
-  var rows = Array.isArray(ready.rows) ? ready.rows : [];
-
-  var sent = 0;
-  var errors = 0;
-  var skippedMissingFields = 0;
-
-  for (var i = 0; i < rows.length; i++) {
-    var item = rows[i] || {};
-    var email = normalizeEmail_(item.email);
-    var paymentId = String(item.paymentId || item.id || '').trim();
-    if (!email || !paymentId) {
-      skippedMissingFields++;
-      continue;
-    }
-
-    try {
-      var eventDate = item.eventDate ? parseDateInput_(item.eventDate) : null;
-      var eventDateText = eventDate ? formatDate_(eventDate, 'dd/MM/yyyy') : 'sắp tới';
-      var htmlBody = buildSelectionEmailHtml_(
-        item.ingameName || email,
-        eventDateText,
-        String(item.groupLink || '').trim(),
-        String(item.supportMessage || CONFIG.DEFAULT_MESSAGE || '').trim(),
-        false
-      );
-
-      MailApp.sendEmail({
-        to: email,
-        subject: CONFIG.DEFAULT_SUBJECT.replace('{{eventDate}}', eventDateText),
-        htmlBody: htmlBody,
-        name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
-      });
-
-      apiPost_('/internal/mark-mail-sent', {
-        paymentId: paymentId,
-        success: true
-      });
-
-      sent++;
-    } catch (error) {
-      errors++;
-      Logger.log(
-        'Gửi mail nhóm thất bại. paymentId=' + paymentId +
-        ', email=' + email +
-        ', error=' + String(error && error.message ? error.message : error)
-      );
-      try {
-        apiPost_('/internal/mark-mail-sent', {
-          paymentId: paymentId,
-          success: false,
-          error: String(error && error.message ? error.message : error)
-        });
-      } catch (markErr) {
-        Logger.log('Gọi mark-mail-sent thất bại: ' + String(markErr && markErr.message ? markErr.message : markErr));
-      }
-    }
-  }
-
-  Logger.log(
-    'processPaidPaymentMailsFromApi_: rows=' + rows.length +
-    ', sent=' + sent +
-    ', errors=' + errors +
-    ', skippedMissingFields=' + skippedMissingFields
-  );
-
+  Logger.log('processPaidPaymentMailsFromApi_: đã tắt. Mail thứ 2 được gửi trực tiếp từ doPost webhook PayOS.');
   return {
-    processed: rows.length,
-    sent: sent,
-    errors: errors,
-    skippedMissingFields: skippedMissingFields
+    processed: 0,
+    sent: 0,
+    errors: 0,
+    skipped: true,
+    reason: 'disabled_use_webhook_dopost'
   };
 }
 
 function getDashboardData(weekKey) {
   syncPlayersFromResponses_();
-  try {
-    processPaidPaymentMailsFromApi_();
-  } catch (err) {
-    Logger.log('processPaidPaymentMailsFromApi_ thất bại trong getDashboardData: ' + String(err && err.message ? err.message : err));
-  }
 
   var weeks = getAvailableWeeks_();
   var activeWeek = weekKey || (weeks.length ? weeks[0].key : '');
   var requests = activeWeek ? getWeekRequests_(activeWeek) : [];
   var eventDateOptions = buildEventDateOptions_(activeWeek);
+  if (eventDateOptions.length && requests.length) {
+    var dateCountMap = {};
+    for (var i = 0; i < requests.length; i++) {
+      var dates = Array.isArray(requests[i].availableDates) ? requests[i].availableDates : [];
+      for (var j = 0; j < dates.length; j++) {
+        var key = String(dates[j] || '').trim();
+        if (!key) {
+          continue;
+        }
+        dateCountMap[key] = Number(dateCountMap[key] || 0) + 1;
+      }
+    }
+
+    var hasAtLeastOneDate = false;
+    eventDateOptions = eventDateOptions.map(function(item) {
+      var count = Number(dateCountMap[item.value] || 0);
+      if (count > 0) {
+        hasAtLeastOneDate = true;
+      }
+      return {
+        value: item.value,
+        label: item.label + ' (' + count + ' người khả dụng)'
+      };
+    });
+
+    if (hasAtLeastOneDate) {
+      eventDateOptions = eventDateOptions.filter(function(item) {
+        return Number(dateCountMap[item.value] || 0) > 0;
+      });
+    }
+  }
 
   return {
     weeks: weeks,
@@ -176,6 +138,7 @@ function getDashboardData(weekKey) {
     requests: requests,
     eventDateOptions: eventDateOptions,
     defaultEventDate: eventDateOptions.length ? eventDateOptions[0].value : '',
+    rankLevels: CONFIG.RANK_LEVELS.slice(),
     defaultSubject: CONFIG.DEFAULT_SUBJECT,
     defaultMessage: CONFIG.DEFAULT_MESSAGE
   };

@@ -22,21 +22,47 @@ function suggestPairsByRank(payload) {
   if (eventDate.getDay() !== 4 && eventDate.getDay() !== 5) {
     throw new Error('Ngày thi đấu chỉ được phép là Thứ 5 hoặc Thứ 6.');
   }
+  var eventDateKey = formatDate_(eventDate, 'yyyy-MM-dd');
 
-  var requests = getWeekRequests_(weekKey);
+  var requests = Array.isArray(payload.items) ? payload.items : getWeekRequests_(weekKey);
+  requests = requests.map(function(item) {
+    var rankNormalized = item.rankNormalized || normalizeFixedRank_(item.rankRaw || item.rank || '');
+    return {
+      playerId: item.playerId || null,
+      submissionId: item.submissionId || null,
+      email: normalizeEmail_(item.email),
+      name: item.name || item.ingame || '',
+      ingame: item.ingame || item.name || '',
+      rankRaw: item.rankRaw || item.rank || '',
+      rankNormalized: rankNormalized || 'Không rõ',
+      priority: !!item.priority,
+      selectedCount: Number(item.selectedCount || 0),
+      requestedAtEpoch: Number(item.requestedAtEpoch || 0),
+      paymentRequired: !!item.paymentRequired,
+      availableDates: Array.isArray(item.availableDates) ? item.availableDates : []
+    };
+  });
+  requests = requests.filter(function(item) {
+    if (!item.email) {
+      return false;
+    }
+    if (!item.availableDates.length) {
+      return false;
+    }
+    return item.availableDates.indexOf(eventDateKey) !== -1;
+  });
+
   if (!requests.length) {
     return {
       requestedPairs: pairCount,
       actualPairs: 0,
       missingPairs: pairCount,
       pairs: [],
-      unpaired: [],
       selectedEmails: [],
-      countedEmails: [],
-      countAdded: 0,
-      countSkipped: 0,
+      weekKey: weekKey,
+      eventDateKey: eventDateKey,
       eventDate: formatDate_(eventDate, 'dd/MM/yyyy'),
-      message: 'Tuần này chưa có dữ liệu đăng ký để ghép cặp.'
+      message: 'Không có người đăng ký khả dụng cho ngày thi đấu đã chọn.'
     };
   }
 
@@ -88,13 +114,14 @@ function suggestPairsByRank(payload) {
   var actualPairs = Math.min(pairCount, candidatePairs.length);
   var selectedPairs = [];
   var selectedEmailsMap = {};
-  var selectedItems = [];
 
   for (var c = 0; c < actualPairs; c++) {
     var pair = candidatePairs[c];
     var pairNo = c + 1;
+    var pairId = buildPairId_(pair.a, pair.b, pairNo);
 
     selectedPairs.push({
+      pairId: pairId,
       pairNo: pairNo,
       rank: pair.rank,
       a: pair.a,
@@ -103,34 +130,8 @@ function suggestPairsByRank(payload) {
 
     selectedEmailsMap[pair.a.email] = true;
     selectedEmailsMap[pair.b.email] = true;
-
-    selectedItems.push({
-      email: pair.a.email,
-      name: pair.a.name,
-      ingame: pair.a.ingame,
-      rank: pair.rank
-    });
-    selectedItems.push({
-      email: pair.b.email,
-      name: pair.b.name,
-      ingame: pair.b.ingame,
-      rank: pair.rank
-    });
   }
 
-  var unpaired = [];
-  for (var u = 0; u < requests.length; u++) {
-    if (!selectedEmailsMap[requests[u].email]) {
-      unpaired.push({
-        email: requests[u].email,
-        name: requests[u].name,
-        ingame: requests[u].ingame,
-        rank: requests[u].rankNormalized
-      });
-    }
-  }
-
-  var countResult = countSelections_(weekKey, eventDate, selectedItems, 'PAIR_BY_RANK');
   var missingPairs = Math.max(0, pairCount - actualPairs);
   var eventDateText = formatDate_(eventDate, 'dd/MM/yyyy');
 
@@ -139,24 +140,25 @@ function suggestPairsByRank(payload) {
   if (missingPairs > 0) {
     message += ' Thiếu ' + missingPairs + ' cặp do không đủ người đồng rank.';
   }
-  message += ' Đã cập nhật số lần được chọn: ' + countResult.added + ' người.';
-  if (countResult.skipped > 0) {
-    message += ' Bỏ qua ' + countResult.skipped + ' người vì đã được tính trước đó.';
-  }
 
   return {
+    weekKey: weekKey,
+    eventDateKey: eventDateKey,
     requestedPairs: pairCount,
     actualPairs: actualPairs,
     missingPairs: missingPairs,
     eventDate: eventDateText,
     pairs: selectedPairs,
-    unpaired: unpaired,
     selectedEmails: Object.keys(selectedEmailsMap),
-    countedEmails: countResult.countedEmails,
-    countAdded: countResult.added,
-    countSkipped: countResult.skipped,
     message: message
   };
+}
+
+function buildPairId_(a, b, pairNo) {
+  var emailA = normalizeEmail_(a && a.email);
+  var emailB = normalizeEmail_(b && b.email);
+  var sorted = [emailA, emailB].sort();
+  return sorted[0] + '__' + sorted[1] + '__' + String(pairNo || 0);
 }
 
 function getRankOrder_(rankLabel) {
@@ -183,9 +185,189 @@ function sortRequestsForPair_(a, b) {
 
 function toPairPlayer_(row) {
   return {
+    playerId: row.playerId || null,
+    submissionId: row.submissionId || null,
     email: row.email,
     name: row.name,
     ingame: row.ingame || row.name,
-    rank: row.rankNormalized || 'Không rõ'
+    rank: row.rankNormalized || 'Không rõ',
+    paymentRequired: !!row.paymentRequired,
+    priority: !!row.priority
   };
+}
+
+function normalizePairingPayload_(payload) {
+  var weekKey = String(payload && payload.weekKey || '').trim();
+  var eventDate = parseDateInput_(payload && payload.eventDate);
+  if (!weekKey || !eventDate) {
+    throw new Error('Thiếu tuần hoặc ngày thi đấu để lưu ghép cặp.');
+  }
+  if (eventDate.getDay() !== 4 && eventDate.getDay() !== 5) {
+    throw new Error('Ngày thi đấu chỉ được phép là Thứ 5 hoặc Thứ 6.');
+  }
+
+  var pairRows = Array.isArray(payload && payload.pairs) ? payload.pairs : [];
+  var normalizedPairs = [];
+  for (var i = 0; i < pairRows.length; i++) {
+    var pair = pairRows[i] || {};
+    var a = pair.a || {};
+    var b = pair.b || {};
+    if (!normalizeEmail_(a.email) || !normalizeEmail_(b.email)) {
+      continue;
+    }
+    var pairNo = Number(pair.pairNo || 0);
+    normalizedPairs.push({
+      pairId: String(pair.pairId || buildPairId_(a, b, pairNo || (i + 1))),
+      pairNo: pairNo || (i + 1),
+      rank: String(pair.rank || a.rank || b.rank || 'Không rõ'),
+      a: {
+        playerId: a.playerId || null,
+        submissionId: a.submissionId || null,
+        email: normalizeEmail_(a.email),
+        name: a.name || a.ingame || '',
+        ingame: a.ingame || a.name || '',
+        rank: String(pair.rank || a.rank || 'Không rõ'),
+        paymentRequired: !!a.paymentRequired,
+        priority: !!a.priority
+      },
+      b: {
+        playerId: b.playerId || null,
+        submissionId: b.submissionId || null,
+        email: normalizeEmail_(b.email),
+        name: b.name || b.ingame || '',
+        ingame: b.ingame || b.name || '',
+        rank: String(pair.rank || b.rank || 'Không rõ'),
+        paymentRequired: !!b.paymentRequired,
+        priority: !!b.priority
+      }
+    });
+  }
+
+  return {
+    weekKey: weekKey,
+    eventDate: formatDate_(eventDate, 'yyyy-MM-dd'),
+    eventDateText: formatDate_(eventDate, 'dd/MM/yyyy'),
+    pairs: normalizedPairs
+  };
+}
+
+function normalizePairingResponse_(pairing) {
+  var plan = pairing || {};
+  var pairs = Array.isArray(plan.pairs) ? plan.pairs : [];
+  return {
+    weekKey: String(plan.weekKey || ''),
+    eventDate: String(plan.eventDate || ''),
+    status: String(plan.status || 'DRAFT'),
+    pairCount: Number(plan.pairCount || pairs.length || 0),
+    pairs: pairs,
+    selectedEmails: Array.isArray(plan.selectedEmails) ? plan.selectedEmails : [],
+    sentAt: plan.sentAt || null,
+    updatedAt: plan.updatedAt || null
+  };
+}
+
+function getSavedPairingPlan(payload) {
+  payload = payload || {};
+  var weekKey = String(payload.weekKey || '').trim();
+  var eventDate = parseDateInput_(payload.eventDate);
+  if (!weekKey || !eventDate) {
+    throw new Error('Thiếu tuần hoặc ngày thi đấu để xem cặp đã ghép.');
+  }
+
+  var result = apiGet_('/internal/pairing-plan', {
+    weekKey: weekKey,
+    eventDate: formatDate_(eventDate, 'yyyy-MM-dd')
+  });
+
+  return normalizePairingResponse_(result.pairing);
+}
+
+function savePairingDraft(payload) {
+  var data = normalizePairingPayload_(payload);
+  var result = apiPost_('/internal/save-pairing-plan', {
+    weekKey: data.weekKey,
+    eventDate: data.eventDate,
+    status: 'DRAFT',
+    pairs: data.pairs
+  });
+  var response = normalizePairingResponse_(result.pairing);
+  response.message = 'Đã lưu ' + response.pairCount + ' cặp ở trạng thái xem xét.';
+  return response;
+}
+
+function deletePairFromSavedPlan(payload) {
+  payload = payload || {};
+  var weekKey = String(payload.weekKey || '').trim();
+  var eventDate = parseDateInput_(payload.eventDate);
+  var pairId = String(payload.pairId || '').trim();
+  if (!weekKey || !eventDate || !pairId) {
+    throw new Error('Thiếu thông tin để xóa cặp đã ghép.');
+  }
+
+  var result = apiPost_('/internal/delete-pair-from-plan', {
+    weekKey: weekKey,
+    eventDate: formatDate_(eventDate, 'yyyy-MM-dd'),
+    pairId: pairId
+  });
+  var response = normalizePairingResponse_(result.pairing);
+  response.message = 'Đã xóa cặp đấu. Còn lại ' + response.pairCount + ' cặp.';
+  return response;
+}
+
+function sendPairingNow(payload) {
+  payload = payload || {};
+  var data = normalizePairingPayload_(payload);
+  if (!data.pairs.length) {
+    throw new Error('Không có cặp nào để gửi mail.');
+  }
+
+  // Lưu trước ở trạng thái xem xét để tránh mất dữ liệu nếu bước gửi mail lỗi.
+  apiPost_('/internal/save-pairing-plan', {
+    weekKey: data.weekKey,
+    eventDate: data.eventDate,
+    status: 'DRAFT',
+    pairs: data.pairs
+  });
+
+  var selected = [];
+  for (var i = 0; i < data.pairs.length; i++) {
+    var pair = data.pairs[i];
+    selected.push(pair.a);
+    selected.push(pair.b);
+  }
+
+  var mailResult = sendSelectionEmails({
+    weekKey: data.weekKey,
+    eventDate: data.eventDate,
+    zaloLink: payload.zaloLink,
+    subject: payload.subject,
+    message: payload.message,
+    selected: selected
+  });
+
+  var savedSent = apiPost_('/internal/save-pairing-plan', {
+    weekKey: data.weekKey,
+    eventDate: data.eventDate,
+    status: 'SENT',
+    pairs: data.pairs
+  });
+
+  return {
+    pairing: normalizePairingResponse_(savedSent.pairing),
+    mail: mailResult
+  };
+}
+
+function removeWeekRegistration(payload) {
+  payload = payload || {};
+  var weekKey = String(payload.weekKey || '').trim();
+  var email = normalizeEmail_(payload.email);
+  if (!weekKey || !email) {
+    throw new Error('Thiếu tuần hoặc email để xóa đăng ký.');
+  }
+
+  return apiPost_('/internal/remove-week-registration', {
+    weekKey: weekKey,
+    email: email
+  });
 }

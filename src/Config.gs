@@ -19,7 +19,7 @@ var CONFIG = {
     SPREADSHEET_URL: String(ENV.TARGET_SPREADSHEET_URL || '').trim()
   },
   API: {
-    BASE_URL: String(readScriptProperty_('API_BASE_URL', ENV.API_BASE_URL || '')).trim(),
+    BASE_URL: String(ENV.API_BASE_URL || readScriptProperty_('API_BASE_URL', '')).trim(),
     INTERNAL_API_KEY: String(readScriptProperty_('INTERNAL_API_KEY', ENV.INTERNAL_API_KEY || '')).trim(),
     TIMEOUT_MS: Number(readScriptProperty_('API_TIMEOUT_MS', ENV.API_TIMEOUT_MS || 20000))
   },
