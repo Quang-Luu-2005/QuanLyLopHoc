@@ -116,6 +116,14 @@ function handleError(error, request) {
 }
 
 async function handlePublicRoute(method, path, url) {
+  if (method === "GET" && path === "/") {
+    return jsonResponse(200, { ok: true, service: "quanlylophoc-backend", status: "running" });
+  }
+
+  if (method === "GET" && path === "/favicon.ico") {
+    return new Response(null, { status: 204, headers: withCors() });
+  }
+
   if (method === "GET" && path === "/health") {
     return jsonResponse(200, { ok: true, status: "healthy", time: new Date().toISOString() });
   }
@@ -239,9 +247,16 @@ async function handleWebhookRoute(method, path, body) {
     return jsonResponse(200, { ok: true, message: "PayOS webhook endpoint is ready" });
   }
 
-  if (method === "POST" && path === "/webhooks/payos") {
-    const result = await paymentService.processPayosWebhook(body || {});
-    return jsonResponse(200, { ok: true, ...result });
+  if (method === "POST" && (path === "/webhooks/payos" || path === "/")) {
+    try {
+      const result = await paymentService.processPayosWebhook(body || {});
+      return jsonResponse(200, { ok: true, ...result });
+    } catch (error) {
+      if (String(error && error.message || "").includes("Invalid PayOS webhook signature")) {
+        return jsonResponse(200, { ok: true, ignored: true, reason: "INVALID_SIGNATURE" });
+      }
+      throw error;
+    }
   }
 
   return null;

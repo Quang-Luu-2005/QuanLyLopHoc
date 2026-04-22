@@ -13,6 +13,22 @@ router.get('/', (req, res) => {
   res.json({ ok: true, service: 'quanlylophoc-backend', status: 'running' });
 });
 
+router.post('/', async (req, res, next) => {
+  try {
+    const result = await paymentService.processPayosWebhook(req.body || {});
+    return res.status(200).json({ ok: true, ...result });
+  } catch (error) {
+    if (String(error && error.message || '').includes('Invalid PayOS webhook signature')) {
+      return res.status(200).json({
+        ok: true,
+        ignored: true,
+        reason: 'INVALID_SIGNATURE'
+      });
+    }
+    return next(error);
+  }
+});
+
 router.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
