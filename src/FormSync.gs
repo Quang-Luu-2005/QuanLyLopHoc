@@ -139,6 +139,74 @@ function setLastSyncedFormRow_(rowNumber) {
   PropertiesService.getScriptProperties().setProperty(CONFIG.FORM_SYNC.PROPERTY_LAST_ROW, String(Math.floor(n)));
 }
 
+function getLastSyncedFormSnapshot_() {
+  var key = CONFIG.FORM_SYNC && CONFIG.FORM_SYNC.PROPERTY_LAST_SNAPSHOT;
+  if (!key) {
+    return '';
+  }
+  return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
+}
+
+function setLastSyncedFormSnapshot_(signature) {
+  var key = CONFIG.FORM_SYNC && CONFIG.FORM_SYNC.PROPERTY_LAST_SNAPSHOT;
+  if (!key) {
+    return;
+  }
+  PropertiesService.getScriptProperties().setProperty(key, String(signature || '').trim());
+}
+
+function bytesToHex_(bytes) {
+  var out = '';
+  var list = Array.isArray(bytes) ? bytes : [];
+  for (var i = 0; i < list.length; i++) {
+    var value = list[i];
+    if (value < 0) {
+      value += 256;
+    }
+    var hex = value.toString(16);
+    if (hex.length < 2) {
+      hex = '0' + hex;
+    }
+    out += hex;
+  }
+  return out;
+}
+
+function getResponsesSheetSnapshot_() {
+  var sheet = getResponsesSheet_();
+  var lastRow = Number(sheet.getLastRow() || 0);
+  var lastCol = Number(sheet.getLastColumn() || 0);
+
+  if (lastRow < 1 || lastCol < 1) {
+    return {
+      signature: 'EMPTY|R0|C0',
+      lastRow: lastRow,
+      lastCol: lastCol
+    };
+  }
+
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  var lines = [];
+  for (var r = 0; r < values.length; r++) {
+    var row = values[r];
+    var cells = [];
+    for (var c = 0; c < row.length; c++) {
+      cells.push(String(row[c] === null || row[c] === undefined ? '' : row[c]).trim());
+    }
+    lines.push(cells.join('\u001f'));
+  }
+
+  var payload = lines.join('\u001e');
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, payload, Utilities.Charset.UTF_8);
+  var hash = bytesToHex_(digest);
+
+  return {
+    signature: 'MD5:' + hash + '|R' + lastRow + '|C' + lastCol,
+    lastRow: lastRow,
+    lastCol: lastCol
+  };
+}
+
 function syncSubmissionsFromResponses_(options) {
   options = options || {};
 

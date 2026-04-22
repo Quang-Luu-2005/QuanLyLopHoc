@@ -130,6 +130,8 @@ function getEventDayTokenFromValue_(value) {
 }
 
 function getDashboardData(weekKey) {
+  // Ưu tiên đồng bộ từ Google Sheet trước khi trả dữ liệu UI.
+  // Chỉ full-sync khi phát hiện snapshot sheet thay đổi.
   syncPlayersFromResponses_();
 
   var weeks = getAvailableWeeks_();
@@ -180,5 +182,7 @@ function getDashboardData(weekKey) {
 }
 
 function getWeekRequests(weekKey) {
+  // Mỗi lần UI gọi lấy danh sách tuần, đồng bộ incremental từ Sheet trước.
+  syncPlayersFromResponses_();
   return getWeekRequests_(weekKey);
 }

@@ -223,23 +223,80 @@ function getAllRequests_() {
   return requests;
 }
 
-function syncPlayersFromResponses_() {
+function syncPlayersFromResponses_(options) {
+  options = options || {};
+
+  var batchSize = Number(options.batchSize || CONFIG.FORM_SYNC.BATCH_SIZE || 50);
+  if (!batchSize || batchSize < 1) {
+    batchSize = 50;
+  }
+
+  var detectSnapshot = options.detectSnapshot !== false;
+  var forceFull = !!options.forceFull;
+  var snapshotBefore = null;
+  var snapshotAfter = null;
+
+  if (detectSnapshot) {
+    snapshotBefore = getResponsesSheetSnapshot_();
+    var lastSnapshot = getLastSyncedFormSnapshot_();
+
+    if (!forceFull && lastSnapshot && snapshotBefore.signature === lastSnapshot) {
+      return {
+        totalRequests: 0,
+        totalPlayers: 0,
+        added: 0,
+        failed: 0,
+        forceFull: false,
+        skipped: true,
+        reason: 'NO_CHANGE',
+        snapshot: snapshotBefore.signature,
+        lastRow: getLastSyncedFormRow_()
+      };
+    }
+
+    if (!forceFull && (!lastSnapshot || snapshotBefore.signature !== lastSnapshot)) {
+      forceFull = true;
+    }
+  }
+
+  if (forceFull) {
+    // Khi cần đồng bộ toàn bộ (kể cả các dòng cũ bị chỉnh sửa),
+    // reset con trỏ và chạy lại theo batch bình thường.
+    setLastSyncedFormRow_(0);
+  }
+
+  var maxLoops = Number(options.maxLoops || 50);
+  if (!maxLoops || maxLoops < 1) {
+    maxLoops = 50;
+  }
+
   var totalScanned = 0;
   var totalSynced = 0;
   var totalFailed = 0;
   var loops = 0;
   var lastResult = null;
+  var completed = false;
 
-  while (loops < 20) {
+  while (loops < maxLoops) {
     loops++;
-    lastResult = syncSubmissionsFromResponses_({ batchSize: CONFIG.FORM_SYNC.BATCH_SIZE });
+    lastResult = syncSubmissionsFromResponses_({ batchSize: batchSize });
     totalScanned += Number(lastResult.scanned || 0);
     totalSynced += Number(lastResult.synced || 0);
     totalFailed += Number(lastResult.failed || 0);
 
-    if (!Number(lastResult.scanned || 0) || Number(lastResult.scanned || 0) < Number(CONFIG.FORM_SYNC.BATCH_SIZE || 50)) {
+    if (!Number(lastResult.scanned || 0) || Number(lastResult.scanned || 0) < batchSize) {
+      completed = true;
       break;
     }
+  }
+
+  if (!completed && lastResult && !Number(lastResult.scanned || 0)) {
+    completed = true;
+  }
+
+  if (detectSnapshot && completed && totalFailed === 0) {
+    snapshotAfter = getResponsesSheetSnapshot_();
+    setLastSyncedFormSnapshot_(snapshotAfter.signature);
   }
 
   return {
@@ -247,6 +304,11 @@ function syncPlayersFromResponses_() {
     totalPlayers: totalSynced,
     added: totalSynced,
     failed: totalFailed,
+    forceFull: forceFull,
+    skipped: false,
+    reason: '',
+    snapshot: (snapshotAfter && snapshotAfter.signature) || (snapshotBefore && snapshotBefore.signature) || '',
+    completed: completed,
     lastRow: lastResult ? lastResult.lastRow : getLastSyncedFormRow_()
   };
 }
