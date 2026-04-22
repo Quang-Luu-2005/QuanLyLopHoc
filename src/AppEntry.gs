@@ -93,6 +93,42 @@ function processPaidPaymentMailsFromApi_() {
   };
 }
 
+function getEventDayTokenFromValue_(value) {
+  var parsed = parseDateInput_(value);
+  if (parsed) {
+    var day = parsed.getDay();
+    if (day === 4) {
+      return 'THU5';
+    }
+    if (day === 5) {
+      return 'THU6';
+    }
+  }
+
+  var normalized = normalizeSearchText_(value);
+  if (!normalized) {
+    return '';
+  }
+
+  if (
+    normalized.indexOf('thu 5') !== -1 ||
+    normalized.indexOf('thu5') !== -1 ||
+    normalized.indexOf('thu nam') !== -1 ||
+    normalized.indexOf('thunam') !== -1
+  ) {
+    return 'THU5';
+  }
+  if (
+    normalized.indexOf('thu 6') !== -1 ||
+    normalized.indexOf('thu6') !== -1 ||
+    normalized.indexOf('thu sau') !== -1 ||
+    normalized.indexOf('thusau') !== -1
+  ) {
+    return 'THU6';
+  }
+  return '';
+}
+
 function getDashboardData(weekKey) {
   syncPlayersFromResponses_();
 
@@ -104,18 +140,21 @@ function getDashboardData(weekKey) {
     var dateCountMap = {};
     for (var i = 0; i < requests.length; i++) {
       var dates = Array.isArray(requests[i].availableDates) ? requests[i].availableDates : [];
+      var rowTokenMap = {};
       for (var j = 0; j < dates.length; j++) {
-        var key = String(dates[j] || '').trim();
-        if (!key) {
+        var token = getEventDayTokenFromValue_(dates[j]);
+        if (!token || rowTokenMap[token]) {
           continue;
         }
-        dateCountMap[key] = Number(dateCountMap[key] || 0) + 1;
+        rowTokenMap[token] = true;
+        dateCountMap[token] = Number(dateCountMap[token] || 0) + 1;
       }
     }
 
     var hasAtLeastOneDate = false;
     eventDateOptions = eventDateOptions.map(function(item) {
-      var count = Number(dateCountMap[item.value] || 0);
+      var optionToken = getEventDayTokenFromValue_(item.value);
+      var count = Number(dateCountMap[optionToken] || 0);
       if (count > 0) {
         hasAtLeastOneDate = true;
       }
@@ -127,7 +166,8 @@ function getDashboardData(weekKey) {
 
     if (hasAtLeastOneDate) {
       eventDateOptions = eventDateOptions.filter(function(item) {
-        return Number(dateCountMap[item.value] || 0) > 0;
+        var optionToken = getEventDayTokenFromValue_(item.value);
+        return Number(dateCountMap[optionToken] || 0) > 0;
       });
     }
   }

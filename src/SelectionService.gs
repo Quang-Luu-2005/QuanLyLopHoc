@@ -90,17 +90,21 @@ function buildQrImageBlob_(qrCodeValue, checkoutUrl, paymentCode) {
   return toQrBlobFromUrl_(generatedQrUrl, fileName);
 }
 
-function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText, includeQrInline) {
+function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText, paymentDeadlineText, includeQrInline) {
   var safeName = escapeHtml_(name || 'Bạn');
   var safeDate = escapeHtml_(eventDateText || 'sắp tới');
   var safeMsg = escapeHtml_(customMessage || CONFIG.DEFAULT_MESSAGE || '');
   var safeCode = escapeHtml_(paymentCode || 'N/A');
   var safeAmount = escapeHtml_(amountText || String((CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'));
+  var safeDeadline = escapeHtml_(paymentDeadlineText || '');
   var safeCheckout = escapeHtml_(checkoutUrl || '');
   var showQr = !!includeQrInline;
 
   var checkoutBlock = safeCheckout
     ? '<p><a href="' + safeCheckout + '" target="_blank" rel="noopener noreferrer">Thanh toán qua PayOS</a></p>'
+    : '';
+  var deadlineBlock = safeDeadline
+    ? '<p><strong>Hạn thanh toán:</strong> ' + safeDeadline + '</p>'
     : '';
   var qrBlock = showQr
     ? '<p><strong>Mã QR thanh toán:</strong></p>' +
@@ -113,6 +117,7 @@ function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMess
     '<p>Bạn đã được chọn thi đấu vào ngày <strong>' + safeDate + '</strong>.</p>' +
     '<p>Bạn cần đóng phí trước khi nhận link nhóm.</p>' +
     '<p><strong>Số tiền:</strong> ' + safeAmount + '</p>' +
+    deadlineBlock +
     '<p><strong>Nội dung chuyển khoản:</strong> <code>' + safeCode + '</code></p>' +
     qrBlock +
     checkoutBlock +
@@ -121,14 +126,21 @@ function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMess
     '</div>';
 }
 
-function buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText) {
+function buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText, paymentDeadlineText) {
   var lines = [
     'Chào ' + String(name || 'Bạn'),
     '',
     'Bạn đã được chọn thi đấu vào ngày ' + String(eventDateText || '') + '.',
-    'Số tiền: ' + String(amountText || (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
-    'Nội dung chuyển khoản: ' + String(paymentCode || '')
+    'Số tiền: ' + String(amountText || (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ')
   ];
+
+  if (paymentDeadlineText) {
+    lines.push('Hạn thanh toán: ' + String(paymentDeadlineText));
+  }
+
+  lines = lines.concat([
+    'Nội dung chuyển khoản: ' + String(paymentCode || '')
+  ]);
 
   if (checkoutUrl) {
     lines.push('Thanh toán PayOS: ' + String(checkoutUrl));
@@ -186,6 +198,7 @@ function sendSelectionEmails(payload) {
   var customMessage = String(payload.message || CONFIG.DEFAULT_MESSAGE || '').trim();
   var eventDateText = formatDate_(eventDate, 'dd/MM/yyyy');
   var eventDateKey = formatDate_(eventDate, 'yyyy-MM-dd');
+  var paymentDeadlineText = '18:00 ' + eventDateText;
 
   var quota = MailApp.getRemainingDailyQuota();
   if (selected.length > quota) {
@@ -251,8 +264,8 @@ function sendSelectionEmails(payload) {
       var mailPayload = {
         to: email,
         subject: 'Yêu cầu thanh toán phí thi đấu ngày ' + eventDateText,
-        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
-        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', !!qrBlob),
+        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', paymentDeadlineText),
+        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', paymentDeadlineText, !!qrBlob),
         name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
       };
 

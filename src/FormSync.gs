@@ -17,6 +17,46 @@ function extractAvailableDatesFromRequest_(requestRow) {
 
   var out = [];
   var seen = {};
+  // Dùng ngày mốc cố định để biểu diễn "Thứ 5/Thứ 6":
+  // - 1970-01-01 = Thursday
+  // - 1970-01-02 = Friday
+  // Không phụ thuộc tuần đăng ký.
+  var THU5_REF_DATE = '1970-01-01';
+  var THU6_REF_DATE = '1970-01-02';
+
+  function pushDateKey(dateKey) {
+    var key = String(dateKey || '').trim();
+    if (!key || seen[key]) {
+      return;
+    }
+    seen[key] = true;
+    out.push(key);
+  }
+
+  function addWeekdayTokens(value) {
+    var normalized = normalizeSearchText_(value);
+    if (!normalized) {
+      return;
+    }
+
+    var hasThu5 =
+      normalized.indexOf('thu 5') !== -1 ||
+      normalized.indexOf('thu5') !== -1 ||
+      normalized.indexOf('thu nam') !== -1 ||
+      normalized.indexOf('thunam') !== -1;
+    var hasThu6 =
+      normalized.indexOf('thu 6') !== -1 ||
+      normalized.indexOf('thu6') !== -1 ||
+      normalized.indexOf('thu sau') !== -1 ||
+      normalized.indexOf('thusau') !== -1;
+
+    if (hasThu5) {
+      pushDateKey(THU5_REF_DATE);
+    }
+    if (hasThu6) {
+      pushDateKey(THU6_REF_DATE);
+    }
+  }
 
   function addDateByText(text) {
     var value = String(text || '').trim();
@@ -26,22 +66,17 @@ function extractAvailableDatesFromRequest_(requestRow) {
 
     var ymd = value.match(/(20\d{2})-(\d{2})-(\d{2})/);
     if (ymd) {
-      var ymdKey = ymd[1] + '-' + ymd[2] + '-' + ymd[3];
-      if (!seen[ymdKey]) {
-        seen[ymdKey] = true;
-        out.push(ymdKey);
-      }
+      pushDateKey(ymd[1] + '-' + ymd[2] + '-' + ymd[3]);
       return;
     }
 
     var dmy = value.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
     if (dmy) {
-      var dmyKey = dmy[3] + '-' + dmy[2] + '-' + dmy[1];
-      if (!seen[dmyKey]) {
-        seen[dmyKey] = true;
-        out.push(dmyKey);
-      }
+      pushDateKey(dmy[3] + '-' + dmy[2] + '-' + dmy[1]);
+      return;
     }
+
+    addWeekdayTokens(value);
   }
 
   var headers = Array.isArray(requestRow.headers) ? requestRow.headers : [];

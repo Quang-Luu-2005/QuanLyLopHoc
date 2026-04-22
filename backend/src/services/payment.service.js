@@ -33,6 +33,96 @@ function getPaymentAmount(raw) {
   return Math.round(amount);
 }
 
+function getPaymentDeadlineHour() {
+  const hour = Number(process.env.PAYMENT_DEADLINE_HOUR || 18);
+  if (Number.isNaN(hour)) {
+    return 18;
+  }
+  return Math.max(0, Math.min(23, Math.floor(hour)));
+}
+
+function parseDateOnlyParts(value) {
+  const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3])
+  };
+}
+
+function getTimeZoneOffsetMs(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+
+  const parts = formatter.formatToParts(date).reduce((acc, item) => {
+    if (item.type !== 'literal') {
+      acc[item.type] = item.value;
+    }
+    return acc;
+  }, {});
+
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+
+  return asUtc - date.getTime();
+}
+
+function toUnixFromTimeZoneLocal(localParts, timeZone) {
+  const utcGuess = Date.UTC(
+    Number(localParts.year),
+    Number(localParts.month) - 1,
+    Number(localParts.day),
+    Number(localParts.hour || 0),
+    Number(localParts.minute || 0),
+    Number(localParts.second || 0)
+  );
+
+  const firstPass = utcGuess - getTimeZoneOffsetMs(new Date(utcGuess), timeZone);
+  const refined = utcGuess - getTimeZoneOffsetMs(new Date(firstPass), timeZone);
+  return Math.floor(refined / 1000);
+}
+
+function buildPaymentExpiredAt(eventDate) {
+  const parts = parseDateOnlyParts(eventDate);
+  if (!parts) {
+    return null;
+  }
+
+  const deadlineHour = getPaymentDeadlineHour();
+  const appTimeZone = String(process.env.APP_TIMEZONE || 'Asia/Ho_Chi_Minh').trim() || 'Asia/Ho_Chi_Minh';
+
+  try {
+    return toUnixFromTimeZoneLocal({
+      year: parts.year,
+      month: parts.month,
+      day: parts.day,
+      hour: deadlineHour,
+      minute: 0,
+      second: 0
+    }, appTimeZone);
+  } catch (err) {
+    // Fallback cho timezone VN (UTC+7) khi môi trường không hỗ trợ Intl timezone.
+    return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day, deadlineHour - 7, 0, 0) / 1000);
+  }
+}
+
 function generatePaymentCode(prefix) {
   const p = String(prefix || 'GE').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'GE';
   const token = `${Date.now()}${Math.floor(Math.random() * 900 + 100)}`;
@@ -107,6 +197,13 @@ async function createPayment(payload) {
     const orderCode = await generateUniqueOrderCode();
     const paymentCode = String(payload.paymentCode || generatePaymentCode(process.env.PAYMENT_CODE_PREFIX || 'GE'));
     const description = normalizePayosDescription(payload.description, paymentCode);
+    const expiredAt = buildPaymentExpiredAt(eventDate);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (expiredAt && expiredAt <= nowSeconds) {
+      const err = new Error(`Đã quá hạn thanh toán (trước ${getPaymentDeadlineHour()}:00 ngày thi đấu).`);
+      err.statusCode = 400;
+      throw err;
+    }
 
     const returnUrl = String(process.env.PAYOS_RETURN_URL || '').trim() || 'https://payos.vn';
     const cancelUrl = String(process.env.PAYOS_CANCEL_URL || '').trim() || 'https://payos.vn';
@@ -118,7 +215,8 @@ async function createPayment(payload) {
       buyerName: payload.buyerName || player.ingameName,
       buyerEmail: payload.buyerEmail || player.email,
       returnUrl,
-      cancelUrl
+      cancelUrl,
+      expiredAt
     });
 
     const existing = await paymentRepo.getLatestPaymentByPlayerWeekEvent(session, player.id, weekKey, eventDate);
@@ -167,7 +265,8 @@ async function createPayment(payload) {
       checkoutUrl: payment.checkoutUrl || '',
       qrCode: payment.qrCode || '',
       amount: Number(payment.amount || amount),
-      paymentCode: payment.paymentCode || paymentCode
+      paymentCode: payment.paymentCode || paymentCode,
+      expiredAt: expiredAt || null
     };
   });
 }

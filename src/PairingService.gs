@@ -23,6 +23,7 @@ function suggestPairsByRank(payload) {
     throw new Error('Ngày thi đấu chỉ được phép là Thứ 5 hoặc Thứ 6.');
   }
   var eventDateKey = formatDate_(eventDate, 'yyyy-MM-dd');
+  var eventDayToken = getPairingEventDayTokenFromDate_(eventDate);
 
   var requests = Array.isArray(payload.items) ? payload.items : getWeekRequests_(weekKey);
   requests = requests.map(function(item) {
@@ -49,7 +50,7 @@ function suggestPairsByRank(payload) {
     if (!item.availableDates.length) {
       return false;
     }
-    return item.availableDates.indexOf(eventDateKey) !== -1;
+    return hasPairingAvailableDateForEvent_(item.availableDates, eventDayToken);
   });
 
   if (!requests.length) {
@@ -159,6 +160,63 @@ function buildPairId_(a, b, pairNo) {
   var emailB = normalizeEmail_(b && b.email);
   var sorted = [emailA, emailB].sort();
   return sorted[0] + '__' + sorted[1] + '__' + String(pairNo || 0);
+}
+
+function getPairingEventDayTokenFromDate_(dateObj) {
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    return '';
+  }
+  if (dateObj.getDay() === 4) {
+    return 'THU5';
+  }
+  if (dateObj.getDay() === 5) {
+    return 'THU6';
+  }
+  return '';
+}
+
+function getPairingEventDayTokenFromValue_(value) {
+  var parsed = parseDateInput_(value);
+  if (parsed) {
+    return getPairingEventDayTokenFromDate_(parsed);
+  }
+
+  var normalized = normalizeSearchText_(value);
+  if (!normalized) {
+    return '';
+  }
+
+  if (
+    normalized.indexOf('thu 5') !== -1 ||
+    normalized.indexOf('thu5') !== -1 ||
+    normalized.indexOf('thu nam') !== -1 ||
+    normalized.indexOf('thunam') !== -1
+  ) {
+    return 'THU5';
+  }
+  if (
+    normalized.indexOf('thu 6') !== -1 ||
+    normalized.indexOf('thu6') !== -1 ||
+    normalized.indexOf('thu sau') !== -1 ||
+    normalized.indexOf('thusau') !== -1
+  ) {
+    return 'THU6';
+  }
+  return '';
+}
+
+function hasPairingAvailableDateForEvent_(availableDates, eventDayToken) {
+  var list = Array.isArray(availableDates) ? availableDates : [];
+  for (var i = 0; i < list.length; i++) {
+    var value = String(list[i] || '').trim();
+    if (!value) {
+      continue;
+    }
+    if (getPairingEventDayTokenFromValue_(value) === eventDayToken) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function getRankOrder_(rankLabel) {

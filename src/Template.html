@@ -597,6 +597,67 @@
         return String(document.getElementById('eventDate').value || '').trim();
       }
 
+      function getEventDayTokenFromValue(value) {
+        var text = String(value || '').trim();
+        if (!text) {
+          return '';
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+          var parts = text.split('-');
+          var date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          var day = date.getDay();
+          if (day === 4) {
+            return 'THU5';
+          }
+          if (day === 5) {
+            return 'THU6';
+          }
+          return '';
+        }
+
+        var normalized = normalizeSearchText(text);
+        if (
+          normalized.indexOf('thu 5') !== -1 ||
+          normalized.indexOf('thu5') !== -1 ||
+          normalized.indexOf('thu nam') !== -1 ||
+          normalized.indexOf('thunam') !== -1
+        ) {
+          return 'THU5';
+        }
+        if (
+          normalized.indexOf('thu 6') !== -1 ||
+          normalized.indexOf('thu6') !== -1 ||
+          normalized.indexOf('thu sau') !== -1 ||
+          normalized.indexOf('thusau') !== -1
+        ) {
+          return 'THU6';
+        }
+        return '';
+      }
+
+      function hasAvailableDateForEvent(availableDates, selectedEventDate) {
+        var list = Array.isArray(availableDates) ? availableDates : [];
+        if (!list.length) {
+          return false;
+        }
+
+        var selectedToken = getEventDayTokenFromValue(selectedEventDate);
+        if (!selectedToken) {
+          return false;
+        }
+        for (var i = 0; i < list.length; i++) {
+          var value = String(list[i] || '').trim();
+          if (!value) {
+            continue;
+          }
+          if (selectedToken && getEventDayTokenFromValue(value) === selectedToken) {
+            return true;
+          }
+        }
+        return false;
+      }
+
       function loadDashboard(weekKey) {
         setStatus('Đang đồng bộ và tải dữ liệu...');
         google.script.run
@@ -765,10 +826,7 @@
         }
 
         var dates = Array.isArray(row.availableDates) ? row.availableDates : [];
-        if (!dates.length) {
-          return false;
-        }
-        return dates.indexOf(selectedEventDate) !== -1;
+        return hasAvailableDateForEvent(dates, selectedEventDate);
       }
 
       function isRowVisibleByRank(row) {

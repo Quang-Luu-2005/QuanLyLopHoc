@@ -105,7 +105,7 @@ function mapPayosStatus(rawStatus) {
   return 'pending';
 }
 
-async function createPaymentLink({ orderCode, amount, description, buyerName, buyerEmail, returnUrl, cancelUrl }) {
+async function createPaymentLink({ orderCode, amount, description, buyerName, buyerEmail, returnUrl, cancelUrl, expiredAt }) {
   assertPayosConfig();
 
   const payload = {
@@ -123,6 +123,9 @@ async function createPaymentLink({ orderCode, amount, description, buyerName, bu
   }
   if (buyerEmail) {
     payload.buyerEmail = String(buyerEmail);
+  }
+  if (expiredAt) {
+    payload.expiredAt = Number(expiredAt);
   }
 
   payload.items = [
