@@ -12,6 +12,27 @@ function validateEventDate_(eventDate) {
   }
 }
 
+function normalizeEventTimeText_(eventTime) {
+  var text = String(eventTime || '').trim();
+  if (!text) {
+    return '';
+  }
+  var match = text.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (!match) {
+    return '';
+  }
+  return ('0' + String(Number(match[1]))).slice(-2) + ':' + match[2];
+}
+
+function buildEventScheduleText_(eventDate, eventTimeText) {
+  var dateText = formatDate_(eventDate, 'dd/MM/yyyy');
+  var timeText = normalizeEventTimeText_(eventTimeText);
+  if (timeText) {
+    return dateText + ' lúc ' + timeText;
+  }
+  return dateText;
+}
+
 function buildPayosDescription_(eventDateKey, email) {
   var prefix = String((CONFIG.PAYMENT && CONFIG.PAYMENT.CODE_PREFIX) || 'GE')
     .replace(/[^A-Za-z0-9]/g, '')
@@ -198,6 +219,8 @@ function sendSelectionEmails(payload) {
   var customMessage = String(payload.message || CONFIG.DEFAULT_MESSAGE || '').trim();
   var eventDateText = formatDate_(eventDate, 'dd/MM/yyyy');
   var eventDateKey = formatDate_(eventDate, 'yyyy-MM-dd');
+  var eventTimeText = normalizeEventTimeText_(payload.eventTime);
+  var eventScheduleText = buildEventScheduleText_(eventDate, eventTimeText);
   var paymentDeadlineText = '18:00 ' + eventDateText;
 
   var quota = MailApp.getRemainingDailyQuota();
@@ -253,6 +276,7 @@ function sendSelectionEmails(payload) {
           ingameName: ingame || name,
           weekKey: weekKey,
           eventDate: eventDateKey,
+          eventTime: eventTimeText,
           groupLink: zaloLink,
           supportMessage: customMessage,
           checkoutUrl: String(paymentRes.checkoutUrl || '').trim(),
@@ -263,9 +287,9 @@ function sendSelectionEmails(payload) {
       var qrBlob = buildQrImageBlob_(paymentRes.qrCode, paymentRes.checkoutUrl, effectivePaymentCode);
       var mailPayload = {
         to: email,
-        subject: 'Yêu cầu thanh toán phí thi đấu ngày ' + eventDateText,
-        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', paymentDeadlineText),
-        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', paymentDeadlineText, !!qrBlob),
+        subject: 'Yêu cầu thanh toán phí thi đấu ' + eventScheduleText,
+        body: buildPaymentInstructionEmailTextSimple_(name, eventScheduleText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', paymentDeadlineText),
+        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventScheduleText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', paymentDeadlineText, !!qrBlob),
         name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
       };
 
@@ -287,11 +311,11 @@ function sendSelectionEmails(payload) {
       continue;
     }
 
-    var groupSubject = subjectTemplate.replace('{{eventDate}}', eventDateText);
+    var groupSubject = subjectTemplate.replace('{{eventDate}}', eventScheduleText);
     MailApp.sendEmail({
       to: email,
       subject: groupSubject,
-      htmlBody: buildSelectionEmailHtml_(ingame, eventDateText, zaloLink, customMessage, false),
+      htmlBody: buildSelectionEmailHtml_(ingame, eventScheduleText, zaloLink, customMessage, false),
       name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
     });
 
@@ -317,7 +341,7 @@ function sendSelectionEmails(payload) {
     paymentSent: sentPayment,
     countAdded: Number(countResult.added || 0),
     countSkipped: Number(countResult.skipped || 0),
-    eventDate: eventDateText
+    eventDate: eventScheduleText
   };
 }
 

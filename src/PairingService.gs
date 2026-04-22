@@ -23,7 +23,6 @@ function suggestPairsByRank(payload) {
     throw new Error('Ngày thi đấu chỉ được phép là Thứ 5 hoặc Thứ 6.');
   }
   var eventDateKey = formatDate_(eventDate, 'yyyy-MM-dd');
-  var eventDayToken = getPairingEventDayTokenFromDate_(eventDate);
 
   var requests = Array.isArray(payload.items) ? payload.items : getWeekRequests_(weekKey);
   requests = requests.map(function(item) {
@@ -47,10 +46,7 @@ function suggestPairsByRank(payload) {
     if (!item.email) {
       return false;
     }
-    if (!item.availableDates.length) {
-      return false;
-    }
-    return hasPairingAvailableDateForEvent_(item.availableDates, eventDayToken);
+    return true;
   });
 
   if (!requests.length) {
@@ -397,6 +393,7 @@ function sendPairingNow(payload) {
   var mailResult = sendSelectionEmails({
     weekKey: data.weekKey,
     eventDate: data.eventDate,
+    eventTime: payload.eventTime,
     zaloLink: payload.zaloLink,
     subject: payload.subject,
     message: payload.message,

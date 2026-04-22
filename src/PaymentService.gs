@@ -298,12 +298,29 @@ function extractPayosWebhookFields_(payload) {
   };
 }
 
-function formatPayosEventDateText_(eventDateRaw) {
+function normalizePayosEventTimeText_(eventTimeRaw) {
+  var text = String(eventTimeRaw || '').trim();
+  if (!text) {
+    return '';
+  }
+  var match = text.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (!match) {
+    return '';
+  }
+  return ('0' + String(Number(match[1]))).slice(-2) + ':' + match[2];
+}
+
+function formatPayosEventDateText_(eventDateRaw, eventTimeRaw) {
   var dateObj = parseDateInput_(eventDateRaw);
   if (!dateObj) {
     return 'sắp tới';
   }
-  return formatDate_(dateObj, 'dd/MM/yyyy');
+  var dateText = formatDate_(dateObj, 'dd/MM/yyyy');
+  var timeText = normalizePayosEventTimeText_(eventTimeRaw);
+  if (timeText) {
+    return dateText + ' lúc ' + timeText;
+  }
+  return dateText;
 }
 
 function sendGroupMailFromPayosContext_(ctx) {
@@ -312,7 +329,7 @@ function sendGroupMailFromPayosContext_(ctx) {
     throw new Error('Thiếu email trong context webhook PayOS.');
   }
 
-  var eventDateText = formatPayosEventDateText_(ctx && ctx.eventDate);
+  var eventDateText = formatPayosEventDateText_(ctx && ctx.eventDate, ctx && ctx.eventTime);
   var htmlBody = buildSelectionEmailHtml_(
     (ctx && (ctx.ingameName || ctx.name)) || email,
     eventDateText,

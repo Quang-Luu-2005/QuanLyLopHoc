@@ -349,8 +349,7 @@
           <button class="secondary small" onclick="reloadCurrentWeek()">Tải lại</button>
         </div>
 
-        <label for="eventDate">Ngày thi đấu (chỉ Thứ 5 / Thứ 6)</label>
-        <select id="eventDate"></select>
+        <select id="eventDate" style="display:none"></select>
 
         <label for="pairCount">Số cặp cần ghép</label>
         <input id="pairCount" type="number" min="1" step="1" value="5" />
@@ -403,6 +402,7 @@
               <th>Ingame</th>
               <th>Email</th>
               <th>Rank</th>
+              <th>Đá được hôm nào</th>
               <th class="center">Trạng thái ghép</th>
               <th class="center">Đóng phí</th>
               <th class="center">Thanh toán</th>
@@ -820,13 +820,7 @@
       }
 
       function isRowVisibleByEventDate(row) {
-        var selectedEventDate = getSelectedEventDate();
-        if (!selectedEventDate) {
-          return true;
-        }
-
-        var dates = Array.isArray(row.availableDates) ? row.availableDates : [];
-        return hasAvailableDateForEvent(dates, selectedEventDate);
+        return true;
       }
 
       function isRowVisibleByRank(row) {
@@ -944,14 +938,14 @@
       function renderRows() {
         var tbody = document.querySelector('#requestTable tbody');
         if (!state.requests.length) {
-          tbody.innerHTML = '<tr><td colspan="11" class="muted">Chưa có đăng ký trong tuần này.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="12" class="muted">Chưa có đăng ký trong tuần này.</td></tr>';
           return;
         }
 
         updatePaymentToolbarState();
         var visibleRows = getDisplayRows();
         if (!visibleRows.length) {
-          tbody.innerHTML = '<tr><td colspan="11" class="muted">Không có dữ liệu phù hợp bộ lọc hiện tại.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="12" class="muted">Không có dữ liệu phù hợp bộ lọc hiện tại.</td></tr>';
           return;
         }
 
@@ -964,6 +958,7 @@
           var picked = isPickedEmail(emailKey);
           var priorityChecked = getEffectivePriorityByEmail(emailKey, row.priority);
           var paired = !!pairedMap[emailKey];
+          var availableLabel = formatAvailableDatesLabel(row.availableDates);
 
           html += '' +
             '<tr data-email="' + escapeHtml(emailKey) + '"' +
@@ -982,6 +977,7 @@
             '  <td>' + escapeHtml(row.ingame || row.name || '') + '</td>' +
             '  <td>' + escapeHtml(row.email || '') + '</td>' +
             '  <td>' + escapeHtml(row.rankNormalized || 'Không rõ') + '</td>' +
+            '  <td>' + escapeHtml(availableLabel) + '</td>' +
             '  <td class="center"><span class="' + (paired ? 'pair-chip pair-chip--paired' : 'pair-chip pair-chip--unpaired') + '">' + (paired ? 'Đã ghép cặp' : 'Chưa ghép') + '</span></td>' +
             '  <td class="center"><span class="' + (row.paymentRequired ? 'pay-chip pay-chip--pending' : 'pay-chip pay-chip--none') + '">' + (row.paymentRequired ? 'Có' : 'Không') + '</span></td>' +
             '  <td class="center"><span class="' + paymentClass + '">' + escapeHtml(paymentText) + '</span></td>' +
@@ -1218,6 +1214,98 @@
         return Object.keys(map);
       }
 
+      function parseEventDateInputToIso(value) {
+        var text = String(value || '').trim();
+        if (!text) {
+          return '';
+        }
+
+        var ymd = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (ymd) {
+          return ymd[1] + '-' + ymd[2] + '-' + ymd[3];
+        }
+
+        var dmy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (dmy) {
+          var dd = String(Number(dmy[1])).padStart(2, '0');
+          var mm = String(Number(dmy[2])).padStart(2, '0');
+          var yy = dmy[3];
+          return yy + '-' + mm + '-' + dd;
+        }
+
+        return '';
+      }
+
+      function normalizeEventTimeInput(value) {
+        var text = String(value || '').trim();
+        var match = text.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+        if (!match) {
+          return '';
+        }
+        return String(Number(match[1])).padStart(2, '0') + ':' + match[2];
+      }
+
+      function askEventScheduleForMail_(onDone) {
+        var dateInput = window.prompt('Nhập ngày thi đấu (YYYY-MM-DD hoặc DD/MM/YYYY):', '');
+        if (dateInput === null) {
+          onDone(null);
+          return;
+        }
+        var eventDate = parseEventDateInputToIso(dateInput);
+        if (!eventDate) {
+          setStatus('Ngày thi đấu không hợp lệ. Dùng YYYY-MM-DD hoặc DD/MM/YYYY.', true);
+          onDone(null);
+          return;
+        }
+
+        var timeInput = window.prompt('Nhập giờ thi đấu (HH:mm), ví dụ 19:30:', '');
+        if (timeInput === null) {
+          onDone(null);
+          return;
+        }
+        var eventTime = normalizeEventTimeInput(timeInput);
+        if (!eventTime) {
+          setStatus('Giờ thi đấu không hợp lệ. Dùng định dạng HH:mm.', true);
+          onDone(null);
+          return;
+        }
+
+        onDone({
+          eventDate: eventDate,
+          eventTime: eventTime
+        });
+      }
+
+      function formatAvailableDatesLabel(availableDates) {
+        var list = Array.isArray(availableDates) ? availableDates : [];
+        if (!list.length) {
+          return 'Chưa rõ';
+        }
+
+        var hasThu5 = false;
+        var hasThu6 = false;
+        for (var i = 0; i < list.length; i++) {
+          var token = getEventDayTokenFromValue(list[i]);
+          if (token === 'THU5') {
+            hasThu5 = true;
+          } else if (token === 'THU6') {
+            hasThu6 = true;
+          }
+        }
+
+        var out = [];
+        if (hasThu5) {
+          out.push('Thứ 5');
+        }
+        if (hasThu6) {
+          out.push('Thứ 6');
+        }
+        if (!out.length) {
+          return 'Chưa rõ';
+        }
+        return out.join(', ');
+      }
+
       function handlePairModalClick(event) {
         var btn = event.target && event.target.closest ? event.target.closest('.remove-pair') : null;
         if (!btn) {
@@ -1356,59 +1444,67 @@
           return;
         }
 
-        var defaultZalo = String(document.getElementById('zaloLink').value || '').trim();
-        openZaloModal(defaultZalo, function(zaloLink) {
-          if (!zaloLink) {
+        askEventScheduleForMail_(function(schedule) {
+          if (!schedule) {
             setStatus('Đã hủy gửi mail.');
             return;
           }
 
-          var draft = state.pairDraft;
-          var payload = {
-            weekKey: draft.weekKey,
-            eventDate: draft.eventDate,
-            zaloLink: zaloLink,
-            subject: document.getElementById('subject').value,
-            message: document.getElementById('message').value,
-            pairs: draft.pairs || []
-          };
+          var defaultZalo = String(document.getElementById('zaloLink').value || '').trim();
+          openZaloModal(defaultZalo, function(zaloLink) {
+            if (!zaloLink) {
+              setStatus('Đã hủy gửi mail.');
+              return;
+            }
 
-          setStatus('Đang lưu và gửi mail cho các cặp đã ghép...');
-          google.script.run
-            .withSuccessHandler(function(result) {
-              var pairing = result && result.pairing ? result.pairing : null;
-              var mail = result && result.mail ? result.mail : {};
-              if (pairing) {
-                state.currentPairing = pairing;
-                state.pairDraft = {
-                  source: 'saved',
-                  weekKey: pairing.weekKey,
-                  eventDate: pairing.eventDate,
-                  status: pairing.status || 'SENT',
-                  pairs: pairing.pairs || [],
-                  pairCount: Number(pairing.pairCount || 0),
-                  message: ''
-                };
-                applySelectedEmails(pairing.selectedEmails || flattenPairingSelectedEmails(pairing.pairs || []));
-              }
+            var draft = state.pairDraft;
+            var payload = {
+              weekKey: draft.weekKey,
+              eventDate: schedule.eventDate,
+              eventTime: schedule.eventTime,
+              zaloLink: zaloLink,
+              subject: document.getElementById('subject').value,
+              message: document.getElementById('message').value,
+              pairs: draft.pairs || []
+            };
 
-              closePairModal();
-              var msg = 'Đã lưu & gửi mail cho cặp đấu. Đã gửi: ' + Number(mail.sent || 0) +
-                ', Bỏ qua: ' + Number(mail.skipped || 0) + '.';
-              msg += ' Link nhóm gửi ngay: ' + Number(mail.sentGroup || 0) + '.';
-              msg += ' Mail thanh toán: ' + Number(mail.sentPayment || 0) + '.';
-              if (Number(mail.countAdded || 0) > 0) {
-                msg += ' Đã lưu số lần chọn: +' + Number(mail.countAdded || 0) + '.';
-              }
-              if (Number(mail.countSkipped || 0) > 0) {
-                msg += ' Bỏ qua đếm: ' + Number(mail.countSkipped || 0) + '.';
-              }
-              setStatus(msg);
-              window.alert('Đã lưu cặp và gửi mail thành công.');
-              reloadCurrentWeek();
-            })
-            .withFailureHandler(handleError)
-            .sendPairingNow(payload);
+            setStatus('Đang lưu và gửi mail cho các cặp đã ghép...');
+            google.script.run
+              .withSuccessHandler(function(result) {
+                var pairing = result && result.pairing ? result.pairing : null;
+                var mail = result && result.mail ? result.mail : {};
+                if (pairing) {
+                  state.currentPairing = pairing;
+                  state.pairDraft = {
+                    source: 'saved',
+                    weekKey: pairing.weekKey,
+                    eventDate: pairing.eventDate,
+                    status: pairing.status || 'SENT',
+                    pairs: pairing.pairs || [],
+                    pairCount: Number(pairing.pairCount || 0),
+                    message: ''
+                  };
+                  applySelectedEmails(pairing.selectedEmails || flattenPairingSelectedEmails(pairing.pairs || []));
+                }
+
+                closePairModal();
+                var msg = 'Đã lưu & gửi mail cho cặp đấu. Đã gửi: ' + Number(mail.sent || 0) +
+                  ', Bỏ qua: ' + Number(mail.skipped || 0) + '.';
+                msg += ' Link nhóm gửi ngay: ' + Number(mail.sentGroup || 0) + '.';
+                msg += ' Mail thanh toán: ' + Number(mail.sentPayment || 0) + '.';
+                if (Number(mail.countAdded || 0) > 0) {
+                  msg += ' Đã lưu số lần chọn: +' + Number(mail.countAdded || 0) + '.';
+                }
+                if (Number(mail.countSkipped || 0) > 0) {
+                  msg += ' Bỏ qua đếm: ' + Number(mail.countSkipped || 0) + '.';
+                }
+                setStatus(msg);
+                window.alert('Đã lưu cặp và gửi mail thành công.');
+                reloadCurrentWeek();
+              })
+              .withFailureHandler(handleError)
+              .sendPairingNow(payload);
+          });
         });
       }
 
@@ -1731,56 +1827,58 @@
           return;
         }
 
-        var eventDate = getSelectedEventDate();
-        if (!eventDate) {
-          setStatus('Bạn cần chọn ngày thi đấu (Thứ 5 hoặc Thứ 6).', true);
-          return;
-        }
-
-        var defaultZalo = String(document.getElementById('zaloLink').value || '').trim();
-
-        openZaloModal(defaultZalo, function(zaloLink) {
-          if (!zaloLink) {
+        askEventScheduleForMail_(function(schedule) {
+          if (!schedule) {
             setStatus('Đã hủy gửi mail.');
             return;
           }
 
-          var payload = {
-            weekKey: document.getElementById('weekSelect').value,
-            eventDate: eventDate,
-            zaloLink: zaloLink,
-            subject: document.getElementById('subject').value,
-            message: document.getElementById('message').value,
-            selected: selected
-          };
+          var defaultZalo = String(document.getElementById('zaloLink').value || '').trim();
 
-          setStatus('Đang gửi mail cho ' + selected.length + ' người...');
-          google.script.run
-            .withSuccessHandler(function(result) {
-              var msg = 'Gửi xong ngày ' + result.eventDate + '. Đã gửi: ' + result.sent +
-                ', Bỏ qua: ' + result.skipped + ', Tổng đã chọn: ' + result.total + '.';
-              msg += ' Link nhóm gửi ngay: ' + Number(result.sentGroup || 0) + '.';
-              msg += ' Mail thanh toán: ' + Number(result.sentPayment || 0) + '.';
-              if (Number(result.sentPayment || 0) > 0) {
-                msg += ' Người đóng phí sẽ tự nhận mail link nhóm sau khi hệ thống ghi nhận thanh toán.';
-              }
-              msg += ' Đã lưu số lần chọn: +' + Number(result.countAdded || 0) + '.';
-              if (Number(result.countSkipped || 0) > 0) {
-                msg += ' Bỏ qua đếm: ' + Number(result.countSkipped || 0) + '.';
-              }
-              setStatus(msg);
+          openZaloModal(defaultZalo, function(zaloLink) {
+            if (!zaloLink) {
+              setStatus('Đã hủy gửi mail.');
+              return;
+            }
 
-              var sent = Number(result.sent || 0);
-              var total = Number(result.total || 0);
-              var popupText = sent === total
-                ? 'Đã gửi mail cho toàn bộ người đã chọn.'
-                : ('Đã gửi mail ' + sent + '/' + total + ' người. Vui lòng xem trạng thái để biết chi tiết.');
-              window.alert(popupText);
+            var payload = {
+              weekKey: document.getElementById('weekSelect').value,
+              eventDate: schedule.eventDate,
+              eventTime: schedule.eventTime,
+              zaloLink: zaloLink,
+              subject: document.getElementById('subject').value,
+              message: document.getElementById('message').value,
+              selected: selected
+            };
 
-              reloadCurrentWeek();
-            })
-            .withFailureHandler(handleError)
-            .sendSelectionEmails(payload);
+            setStatus('Đang gửi mail cho ' + selected.length + ' người...');
+            google.script.run
+              .withSuccessHandler(function(result) {
+                var msg = 'Gửi xong ngày ' + result.eventDate + '. Đã gửi: ' + result.sent +
+                  ', Bỏ qua: ' + result.skipped + ', Tổng đã chọn: ' + result.total + '.';
+                msg += ' Link nhóm gửi ngay: ' + Number(result.sentGroup || 0) + '.';
+                msg += ' Mail thanh toán: ' + Number(result.sentPayment || 0) + '.';
+                if (Number(result.sentPayment || 0) > 0) {
+                  msg += ' Người đóng phí sẽ tự nhận mail link nhóm sau khi hệ thống ghi nhận thanh toán.';
+                }
+                msg += ' Đã lưu số lần chọn: +' + Number(result.countAdded || 0) + '.';
+                if (Number(result.countSkipped || 0) > 0) {
+                  msg += ' Bỏ qua đếm: ' + Number(result.countSkipped || 0) + '.';
+                }
+                setStatus(msg);
+
+                var sent = Number(result.sent || 0);
+                var total = Number(result.total || 0);
+                var popupText = sent === total
+                  ? 'Đã gửi mail cho toàn bộ người đã chọn.'
+                  : ('Đã gửi mail ' + sent + '/' + total + ' người. Vui lòng xem trạng thái để biết chi tiết.');
+                window.alert(popupText);
+
+                reloadCurrentWeek();
+              })
+              .withFailureHandler(handleError)
+              .sendSelectionEmails(payload);
+          });
         });
       }
 
