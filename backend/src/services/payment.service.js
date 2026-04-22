@@ -412,6 +412,71 @@ async function getReadyGroupMails(cooldownMinutes) {
   return paymentRepo.listReadyGroupMails(Number.isNaN(mins) ? 0 : Math.max(0, mins));
 }
 
+async function markPaymentPaidFromWebhook(payload) {
+  const paymentId = String((payload && payload.paymentId) || '').trim();
+  const orderCodeRaw = payload && payload.orderCode !== undefined ? payload.orderCode : null;
+  const orderCode = Number(orderCodeRaw || 0);
+  const paidAmount = Number((payload && payload.paidAmount) || 0);
+  const paymentRef = String((payload && payload.paymentRef) || '').trim();
+  const paidContent = String((payload && payload.paidContent) || '').trim();
+
+  if (!paymentId && !orderCode) {
+    const err = new Error('paymentId or orderCode is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return withTransaction(async (session) => {
+    let payment = null;
+
+    if (paymentId) {
+      payment = await paymentRepo.getPaymentById(session, paymentId);
+    }
+    if (!payment && orderCode) {
+      payment = await paymentRepo.getPaymentByOrderCodeRaw(session, orderCode);
+    }
+
+    if (!payment) {
+      return {
+        matched: false,
+        ignored: true,
+        reason: 'PAYMENT_NOT_FOUND'
+      };
+    }
+
+    const patch = {
+      paymentStatus: 'paid',
+      lastError: null
+    };
+
+    if (!payment.paidAt) {
+      patch.paidAt = new Date();
+    }
+    if (orderCode) {
+      patch.orderCode = Number(orderCode);
+    }
+    if (paidAmount > 0) {
+      patch.paidAmount = Math.round(paidAmount);
+    }
+    if (paymentRef) {
+      patch.paymentRef = paymentRef;
+    }
+    if (paidContent) {
+      patch.paidContent = paidContent;
+    }
+
+    const updated = await paymentRepo.updatePaymentById(session, payment.id, patch);
+
+    return {
+      matched: true,
+      paymentId: updated.id,
+      orderCode: Number(updated.orderCode || orderCode || 0),
+      paymentStatus: updated.paymentStatus,
+      paymentStatusCode: normalizeStatusCodeFromPaymentRow(updated)
+    };
+  });
+}
+
 async function markMailSent(payload) {
   const paymentId = String((payload && payload.paymentId) || '').trim();
   if (!paymentId) {
@@ -423,11 +488,24 @@ async function markMailSent(payload) {
   const success = payload && payload.success !== false;
   const updated = await withTransaction(async (session) => {
     if (success) {
-      return paymentRepo.updatePaymentById(session, paymentId, {
+      const current = await paymentRepo.getPaymentById(session, paymentId);
+      if (!current) {
+        const err = new Error('Payment not found');
+        err.statusCode = 404;
+        throw err;
+      }
+
+      const patch = {
+        paymentStatus: 'paid',
         groupMailSentAt: new Date(),
         lastMailAt: new Date(),
         lastError: null
-      });
+      };
+      if (!current.paidAt) {
+        patch.paidAt = new Date();
+      }
+
+      return paymentRepo.updatePaymentById(session, paymentId, patch);
     }
 
     return paymentRepo.updatePaymentById(session, paymentId, {
@@ -542,6 +620,7 @@ module.exports = {
   markPaymentsPaidManual,
   getPaymentStatusMapForWeek,
   getReadyGroupMails,
+  markPaymentPaidFromWebhook,
   markMailSent,
   processPayosWebhook,
   listPayments,

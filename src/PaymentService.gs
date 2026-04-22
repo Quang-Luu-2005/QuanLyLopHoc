@@ -283,12 +283,16 @@ function extractPayosWebhookFields_(payload) {
   var statusRaw = String(data.code || data.status || data.desc || body.code || body.status || body.desc || '').trim();
   var normalizedStatus = normalizePaymentStatusCode_(statusRaw);
   var isPaid = normalizedStatus === 'PAID' || String(data.code || body.code || '').trim() === '00' || body.success === true;
+  var amount = Number(data.amount || data.transferAmount || body.amount || 0) || 0;
+  var description = String(data.description || data.transferContent || data.content || body.description || body.content || '').trim();
 
   return {
     orderCode: orderCode,
     statusRaw: statusRaw,
     normalizedStatus: normalizedStatus,
     isPaid: isPaid,
+    amount: amount,
+    description: description,
     reference: String(data.reference || data.transactionId || data.transaction_id || body.reference || '').trim(),
     payload: body
   };
@@ -351,6 +355,30 @@ function markMailSentToBackendBestEffort_(paymentId, success, errorMessage) {
   }
 }
 
+function markPaymentPaidToBackendBestEffort_(paymentId, orderCode, fields) {
+  var id = String(paymentId || '').trim();
+  var code = String(orderCode || '').trim();
+  if (!id && !code) {
+    return { skipped: true, reason: 'payment_id_and_order_code_missing' };
+  }
+  if (!String((CONFIG.API && CONFIG.API.INTERNAL_API_KEY) || '').trim()) {
+    return { skipped: true, reason: 'internal_api_key_missing' };
+  }
+
+  try {
+    return apiPost_('/internal/mark-payment-paid', {
+      paymentId: id || '',
+      orderCode: code || '',
+      paidAmount: Number((fields && fields.amount) || 0),
+      paymentRef: String((fields && fields.reference) || '').trim(),
+      paidContent: String((fields && fields.description) || '').trim()
+    });
+  } catch (err) {
+    Logger.log('markPaymentPaidToBackendBestEffort_ thất bại: ' + String(err && err.message ? err.message : err));
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+}
+
 function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
@@ -399,6 +427,12 @@ function doPost(e) {
         }))
         .setMimeType(ContentService.MimeType.JSON);
     }
+
+    markPaymentPaidToBackendBestEffort_(
+      context.paymentId,
+      fields.orderCode,
+      fields
+    );
 
     var mailResult = sendGroupMailFromPayosContext_(context);
     markPayosMailContextSent_(fields.orderCode, {

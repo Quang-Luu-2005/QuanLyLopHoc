@@ -109,6 +109,11 @@ router.get('/ready-group-mails', asyncHandler(async (req, res) => {
   res.json({ ok: true, rows });
 }));
 
+router.post('/mark-payment-paid', asyncHandler(async (req, res) => {
+  const result = await paymentService.markPaymentPaidFromWebhook(req.body || {});
+  res.json({ ok: true, ...result });
+}));
+
 router.post('/mark-mail-sent', asyncHandler(async (req, res) => {
   const result = await paymentService.markMailSent(req.body || {});
   res.json({ ok: true, ...result });

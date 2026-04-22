@@ -64,6 +64,27 @@ async function updatePaymentById(session, paymentId, patch) {
   return Payment.findByIdAndUpdate(paymentId, { $set: patch }, opts);
 }
 
+async function getPaymentById(session, paymentId) {
+  await connect();
+  if (!paymentId) {
+    return null;
+  }
+  const opts = {};
+  if (session) opts.session = session;
+  return Payment.findById(paymentId, null, opts);
+}
+
+async function getPaymentByOrderCodeRaw(session, orderCode) {
+  await connect();
+  const code = Number(orderCode);
+  if (!code) {
+    return null;
+  }
+  const opts = {};
+  if (session) opts.session = session;
+  return Payment.findOne({ orderCode: code }, null, opts);
+}
+
 async function getWeekPaymentStatusRows(weekKey) {
   await connect();
   const weekDate = toDateOnly(weekKey);
@@ -220,6 +241,8 @@ module.exports = {
   getLatestPaymentByPlayerWeekEvent,
   insertPayment,
   updatePaymentById,
+  getPaymentById,
+  getPaymentByOrderCodeRaw,
   getWeekPaymentStatusRows,
   findPaymentByOrderOrLink,
   listPayments,
