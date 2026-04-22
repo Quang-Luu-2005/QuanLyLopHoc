@@ -432,6 +432,10 @@
       <div class="modal-card large">
         <h3 id="pairModalTitle" class="modal-title">Kết quả ghép cặp đồng rank</h3>
         <p id="pairModalSummary" class="modal-desc"></p>
+        <div class="grid" style="margin-bottom:8px">
+          <label for="pairModalEventDate">Ngày thi đấu trong tuần</label>
+          <select id="pairModalEventDate"></select>
+        </div>
         <div id="pairModalBody" class="pair-content"></div>
         <div class="modal-actions">
           <button class="secondary" onclick="savePairingDraftFromModal()">Lưu xem xét</button>
@@ -485,6 +489,7 @@
         var rankFilter = document.getElementById('rankFilter');
         var rankSort = document.getElementById('rankSort');
         var eventDate = document.getElementById('eventDate');
+        var pairModalEventDate = document.getElementById('pairModalEventDate');
         var tbody = document.querySelector('#requestTable tbody');
         var pairModalBody = document.getElementById('pairModalBody');
 
@@ -500,6 +505,9 @@
           state.selectedEmailMap = {};
           renderRows();
           loadSavedPairingForCurrentDate(false);
+        };
+        pairModalEventDate.onchange = function() {
+          handlePairModalEventDateChange_();
         };
 
         tbody.addEventListener('change', handleTableChange);
@@ -1276,6 +1284,21 @@
         });
       }
 
+      function askEventTimeForMail_(onDone) {
+        var timeInput = window.prompt('Nhập giờ thi đấu (HH:mm), ví dụ 19:30:', '');
+        if (timeInput === null) {
+          onDone(null);
+          return;
+        }
+        var eventTime = normalizeEventTimeInput(timeInput);
+        if (!eventTime) {
+          setStatus('Giờ thi đấu không hợp lệ. Dùng định dạng HH:mm.', true);
+          onDone(null);
+          return;
+        }
+        onDone(eventTime);
+      }
+
       function formatAvailableDatesLabel(availableDates) {
         var list = Array.isArray(availableDates) ? availableDates : [];
         if (!list.length) {
@@ -1306,6 +1329,91 @@
         return out.join(', ');
       }
 
+      function getEventDateLabelByValue_(value) {
+        var key = String(value || '').trim();
+        if (!key) {
+          return '';
+        }
+        var options = Array.isArray(state.eventDateOptions) ? state.eventDateOptions : [];
+        for (var i = 0; i < options.length; i++) {
+          if (String(options[i].value || '').trim() === key) {
+            return String(options[i].label || key).replace(/\s*\([^)]*\)\s*$/, '').trim();
+          }
+        }
+        return key;
+      }
+
+      function renderPairModalEventDateOptions_(preferredValue) {
+        var select = document.getElementById('pairModalEventDate');
+        if (!select) {
+          return;
+        }
+
+        var options = Array.isArray(state.eventDateOptions) ? state.eventDateOptions : [];
+        if (!options.length) {
+          select.innerHTML = '<option value="">Không có ngày thi đấu</option>';
+          return;
+        }
+
+        var preferred = String(preferredValue || '').trim();
+        var html = '';
+        var hasPreferred = false;
+        for (var i = 0; i < options.length; i++) {
+          var option = options[i] || {};
+          var value = String(option.value || '').trim();
+          var label = String(option.label || value).replace(/\s*\([^)]*\)\s*$/, '').trim();
+          var selected = '';
+          if (preferred && value === preferred) {
+            selected = ' selected';
+            hasPreferred = true;
+          } else if (!preferred && i === 0) {
+            selected = ' selected';
+          }
+          html += '<option value="' + escapeHtml(value) + '"' + selected + '>' + escapeHtml(label) + '</option>';
+        }
+        select.innerHTML = html;
+        if (preferred && !hasPreferred) {
+          select.value = String(options[0].value || '');
+        }
+      }
+
+      function getPairModalSelectedEventDate_() {
+        var select = document.getElementById('pairModalEventDate');
+        return String(select && select.value || '').trim();
+      }
+
+      function updatePairModalSummary_() {
+        var summaryEl = document.getElementById('pairModalSummary');
+        if (!summaryEl) {
+          return;
+        }
+
+        var plan = state.pairDraft || {};
+        var pairs = Array.isArray(plan.pairs) ? plan.pairs : [];
+        var status = String(plan.status || 'DRAFT').toUpperCase();
+        var statusText = status === 'SENT' ? 'Đã gửi mail' : 'Đang xem xét';
+        var eventDateValue = getPairModalSelectedEventDate_() || String(plan.eventDate || '').trim();
+        var eventDateLabel = getEventDateLabelByValue_(eventDateValue) || 'N/A';
+
+        summaryEl.textContent = 'Ngày thi đấu: ' + eventDateLabel +
+          ' | Số cặp: ' + pairs.length +
+          ' | Trạng thái: ' + statusText;
+      }
+
+      function handlePairModalEventDateChange_() {
+        var selectedDate = getPairModalSelectedEventDate_();
+        if (state.pairDraft && selectedDate) {
+          state.pairDraft.eventDate = selectedDate;
+        }
+
+        var hiddenEventDate = document.getElementById('eventDate');
+        if (hiddenEventDate && selectedDate) {
+          hiddenEventDate.value = selectedDate;
+        }
+
+        updatePairModalSummary_();
+      }
+
       function handlePairModalClick(event) {
         var btn = event.target && event.target.closest ? event.target.closest('.remove-pair') : null;
         if (!btn) {
@@ -1317,18 +1425,16 @@
 
       function showPairModal(pairing) {
         var modal = document.getElementById('pairModal');
-        var summaryEl = document.getElementById('pairModalSummary');
         var bodyEl = document.getElementById('pairModalBody');
 
         var plan = pairing || {};
         var pairs = Array.isArray(plan.pairs) ? plan.pairs : [];
-        var status = String(plan.status || 'DRAFT').toUpperCase();
-        var statusText = status === 'SENT' ? 'Đã gửi mail' : 'Đang xem xét';
-
-        var summary = 'Ngày thi đấu: ' + (plan.eventDate || getSelectedEventDate() || 'N/A') +
-          ' | Số cặp: ' + pairs.length +
-          ' | Trạng thái: ' + statusText;
-        summaryEl.textContent = summary;
+        var preferredDate = String(plan.eventDate || getSelectedEventDate() || '').trim();
+        renderPairModalEventDateOptions_(preferredDate);
+        if (state.pairDraft && getPairModalSelectedEventDate_()) {
+          state.pairDraft.eventDate = getPairModalSelectedEventDate_();
+        }
+        updatePairModalSummary_();
 
         var html = '';
         if (pairs.length) {
@@ -1413,6 +1519,12 @@
         }
 
         var draft = state.pairDraft;
+        var selectedEventDate = getPairModalSelectedEventDate_();
+        if (!selectedEventDate) {
+          setStatus('Bạn cần chọn ngày thi đấu (Thứ 5 hoặc Thứ 6) trong popup.', true);
+          return;
+        }
+        draft.eventDate = selectedEventDate;
         setStatus('Đang lưu cặp ở trạng thái xem xét...');
         google.script.run
           .withSuccessHandler(function(result) {
@@ -1433,7 +1545,7 @@
           .withFailureHandler(handleError)
           .savePairingDraft({
             weekKey: draft.weekKey,
-            eventDate: draft.eventDate,
+            eventDate: selectedEventDate,
             pairs: draft.pairs || []
           });
       }
@@ -1444,8 +1556,15 @@
           return;
         }
 
-        askEventScheduleForMail_(function(schedule) {
-          if (!schedule) {
+        var selectedEventDate = getPairModalSelectedEventDate_();
+        if (!selectedEventDate) {
+          setStatus('Bạn cần chọn ngày thi đấu (Thứ 5 hoặc Thứ 6) trong popup.', true);
+          return;
+        }
+        state.pairDraft.eventDate = selectedEventDate;
+
+        askEventTimeForMail_(function(eventTime) {
+          if (!eventTime) {
             setStatus('Đã hủy gửi mail.');
             return;
           }
@@ -1460,8 +1579,8 @@
             var draft = state.pairDraft;
             var payload = {
               weekKey: draft.weekKey,
-              eventDate: schedule.eventDate,
-              eventTime: schedule.eventTime,
+              eventDate: selectedEventDate,
+              eventTime: eventTime,
               zaloLink: zaloLink,
               subject: document.getElementById('subject').value,
               message: document.getElementById('message').value,

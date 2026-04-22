@@ -164,12 +164,7 @@ function getDashboardData(weekKey) {
       };
     });
 
-    if (hasAtLeastOneDate) {
-      eventDateOptions = eventDateOptions.filter(function(item) {
-        var optionToken = getEventDayTokenFromValue_(item.value);
-        return Number(dateCountMap[optionToken] || 0) > 0;
-      });
-    }
+    // Giữ đủ 2 lựa chọn Thứ 5/Thứ 6 để người dùng tự quyết định lịch gửi mail.
   }
 
   return {
