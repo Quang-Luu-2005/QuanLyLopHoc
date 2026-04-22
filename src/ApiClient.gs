@@ -1,7 +1,7 @@
 ﻿function ensureApiConfig_() {
   var baseUrl = String((CONFIG.API && CONFIG.API.BASE_URL) || '').trim();
   if (!baseUrl) {
-    throw new Error('Chua cau hinh API_BASE_URL (Script Properties hoac Env.gs).');
+    throw new Error('Chưa cấu hình API_BASE_URL (Script Properties hoặc Env.gs).');
   }
   return {
     baseUrl: baseUrl.replace(/\/+$/, ''),
@@ -14,7 +14,7 @@ function buildApiUrl_(path, query) {
   var cfg = ensureApiConfig_();
   var normalizedPath = String(path || '').trim();
   if (!normalizedPath) {
-    throw new Error('API path is required');
+    throw new Error('Thiếu đường dẫn API.');
   }
   if (normalizedPath.charAt(0) !== '/') {
     normalizedPath = '/' + normalizedPath;
@@ -82,7 +82,7 @@ function apiRequest_(method, path, payload, query, options) {
 
   if (status < 200 || status >= 300 || body.ok === false) {
     var message = String(body.error || body.message || ('HTTP ' + status));
-    throw new Error('API request failed: ' + message);
+    throw new Error('Gọi API thất bại: ' + message);
   }
 
   return body;

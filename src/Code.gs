@@ -1,5 +1,5 @@
 /**
- * Legacy file has been split into modules for maintainability:
+ * File legacy đã được tách thành các module để dễ bảo trì:
  * - Config.gs
  * - Env.gs / Env.example.txt
  * - AppEntry.gs

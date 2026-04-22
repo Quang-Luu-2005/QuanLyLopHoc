@@ -62,25 +62,25 @@ var CONFIG = {
     'LastMailAt',
     'LastError'
   ],
-  MAIL_SENDER_NAME: String(ENV.MAIL_SENDER_NAME || 'Lop hoc Thanh Man').trim() || 'Lop hoc Thanh Man',
-  DEFAULT_SUBJECT: 'Thong bao: Ban da duoc chon thi dau ngay {{eventDate}}',
-  DEFAULT_MESSAGE: 'Neu can ho tro, vui long lien he Zalo: https://zalo.me/0971309547',
+  MAIL_SENDER_NAME: String(ENV.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn').trim() || 'Lớp học Thành Mẫn',
+  DEFAULT_SUBJECT: 'Thông báo: Bạn đã được chọn thi đấu ngày {{eventDate}}',
+  DEFAULT_MESSAGE: 'Nếu cần hỗ trợ, vui lòng liên hệ Zalo: https://zalo.me/0971309547',
   PAYMENT: {
     AMOUNT: Number(ENV.PAYMENT_AMOUNT || readScriptProperty_('DEFAULT_PAYMENT_AMOUNT', 50000)),
-    FEE_TEXT: String(ENV.PAYMENT_FEE_TEXT || '50.000d'),
-    NOTE_TEXT: String(ENV.PAYMENT_NOTE_TEXT || 'Ban vui long chuyen khoan de nhan duoc link group Zalo tham gia buoi thuc hanh.'),
+    FEE_TEXT: String(ENV.PAYMENT_FEE_TEXT || '50.000đ'),
+    NOTE_TEXT: String(ENV.PAYMENT_NOTE_TEXT || 'Bạn vui lòng chuyển khoản để nhận được link group Zalo tham gia buổi thực hành.'),
     CODE_PREFIX: String(ENV.PAYMENT_CODE_PREFIX || 'GE').trim(),
     GROUP_MAIL_COOLDOWN_MINUTES: Number(ENV.PAYMENT_GROUP_MAIL_COOLDOWN_MINUTES || 2)
   },
   RANK_LEVELS: [
-    'Nghiep du',
-    'Ban chuyen',
-    'Chuyen nghiep',
-    'The gioi',
+    'Nghiệp dư',
+    'Bán chuyên',
+    'Chuyên nghiệp',
+    'Thế giới',
     'Tinh anh',
-    'Huyen thoai',
-    'Thach dau',
-    'Sieu sao'
+    'Huyền thoại',
+    'Thách đấu',
+    'Siêu sao'
   ],
   FORM_SYNC: {
     PROPERTY_LAST_ROW: 'LAST_SYNCED_FORM_ROW',

@@ -1,5 +1,5 @@
 ﻿/**
- * Auto-split module from legacy Code.gs
+ * Module tách từ Code.gs legacy.
  */
 
 function getWeekStart_(dateObj) {

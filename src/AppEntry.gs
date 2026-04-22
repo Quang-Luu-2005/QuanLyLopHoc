@@ -1,16 +1,16 @@
 ﻿/**
- * App entry (MongoDB-first).
+ * Điểm vào ứng dụng (ưu tiên MongoDB).
  */
 
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('GatherEasy')
-    .addItem('Mo dashboard chon nguoi', 'showDashboard')
-    .addItem('Khoi tao he thong', 'initializeGatherEasy')
-    .addItem('Dong bo form -> MongoDB', 'syncPlayersManual')
-    .addItem('Cai trigger onFormSubmit', 'installTriggers')
-    .addItem('Xu ly gui link nhom sau thanh toan', 'processPaidPaymentMailsFromApi_')
-    .addItem('Kiem tra collect email cua Form', 'checkFormEmailSetup')
+    .addItem('Mở dashboard chọn người', 'showDashboard')
+    .addItem('Khởi tạo hệ thống', 'initializeGatherEasy')
+    .addItem('Đồng bộ danh sách người chơi', 'syncPlayersManual')
+    .addItem('Cài trigger onFormSubmit', 'installTriggers')
+    .addItem('Xử lý thanh toán chờ', 'processPaidPaymentRequests')
+    .addItem('Kiểm tra collect email của Form', 'checkFormEmailSetup')
     .addToUi();
 }
 
@@ -32,8 +32,8 @@ function initializeGatherEasy() {
   installTriggers();
 
   var message = [
-    'Khoi tao xong.',
-    'Dong bo form: ' + Number(syncResult.totalRequests || 0) + ' dong scan, ' + Number(syncResult.added || 0) + ' dong synced.',
+    'Khởi tạo xong.',
+    'Đồng bộ form: ' + Number(syncResult.totalRequests || 0) + ' dòng quét, ' + Number(syncResult.added || 0) + ' dòng đồng bộ.',
     destinationStatus.message,
     formStatus.message
   ].join(' ');
@@ -49,7 +49,7 @@ function initializeGatherEasy() {
 function syncPlayersManual() {
   var result = syncPlayersFromResponses_();
   notifyUser_(
-    'Dong bo xong. Scanned: ' + Number(result.totalRequests || 0) + ', Synced: ' + Number(result.added || 0) + '.',
+    'Đồng bộ xong. Đã quét: ' + Number(result.totalRequests || 0) + ', Đã đồng bộ: ' + Number(result.added || 0) + '.',
     'GatherEasy',
     6
   );
@@ -100,7 +100,7 @@ function processPaidPaymentMailsFromApi_() {
 
     try {
       var eventDate = item.eventDate ? parseDateInput_(item.eventDate) : null;
-      var eventDateText = eventDate ? formatDate_(eventDate, 'dd/MM/yyyy') : 'sap toi';
+      var eventDateText = eventDate ? formatDate_(eventDate, 'dd/MM/yyyy') : 'sắp tới';
       var htmlBody = buildSelectionEmailHtml_(
         item.ingameName || email,
         eventDateText,
@@ -113,7 +113,7 @@ function processPaidPaymentMailsFromApi_() {
         to: email,
         subject: CONFIG.DEFAULT_SUBJECT.replace('{{eventDate}}', eventDateText),
         htmlBody: htmlBody,
-        name: CONFIG.MAIL_SENDER_NAME || 'Lop hoc Thanh Man'
+        name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
       });
 
       apiPost_('/internal/mark-mail-sent', {
@@ -131,7 +131,7 @@ function processPaidPaymentMailsFromApi_() {
           error: String(error && error.message ? error.message : error)
         });
       } catch (markErr) {
-        Logger.log('mark-mail-sent failed: ' + String(markErr && markErr.message ? markErr.message : markErr));
+        Logger.log('Gọi mark-mail-sent thất bại: ' + String(markErr && markErr.message ? markErr.message : markErr));
       }
     }
   }
@@ -149,7 +149,7 @@ function getDashboardData(weekKey) {
   try {
     processPaidPaymentMailsFromApi_();
   } catch (err) {
-    Logger.log('processPaidPaymentMailsFromApi_ failed in getDashboardData: ' + String(err && err.message ? err.message : err));
+    Logger.log('processPaidPaymentMailsFromApi_ thất bại trong getDashboardData: ' + String(err && err.message ? err.message : err));
   }
 
   var weeks = getAvailableWeeks_();

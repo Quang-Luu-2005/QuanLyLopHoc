@@ -1,60 +1,81 @@
 ﻿/**
- * Selection service (MongoDB-first).
+ * Dịch vụ chọn người (ưu tiên MongoDB).
  */
 
 function validateEventDate_(eventDate) {
   if (!eventDate) {
-    throw new Error('Ngay thi dau khong hop le.');
+    throw new Error('Ngày thi đấu không hợp lệ.');
   }
   var day = eventDate.getDay();
   if (day !== 4 && day !== 5) {
-    throw new Error('Ngay thi dau chi duoc phep la Thu 5 hoac Thu 6.');
+    throw new Error('Ngày thi đấu chỉ được phép là Thứ 5 hoặc Thứ 6.');
   }
 }
 
+function buildPayosDescription_(eventDateKey, email) {
+  var prefix = String((CONFIG.PAYMENT && CONFIG.PAYMENT.CODE_PREFIX) || 'GE')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .toUpperCase() || 'GE';
+  var dateToken = String(eventDateKey || '').replace(/[^0-9]/g, '');
+  if (dateToken.length > 6) {
+    dateToken = dateToken.slice(-6);
+  }
+  var emailToken = String(email || '')
+    .split('@')[0]
+    .replace(/[^A-Za-z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 10);
+
+  var value = [prefix, dateToken, emailToken].join('');
+  if (!value) {
+    value = prefix + String(Date.now()).slice(-8);
+  }
+  return value.slice(0, 25);
+}
+
 function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText) {
-  var safeName = escapeHtml_(name || 'Ban');
-  var safeDate = escapeHtml_(eventDateText || 'sap toi');
+  var safeName = escapeHtml_(name || 'Bạn');
+  var safeDate = escapeHtml_(eventDateText || 'sắp tới');
   var safeMsg = escapeHtml_(customMessage || CONFIG.DEFAULT_MESSAGE || '');
   var safeCode = escapeHtml_(paymentCode || 'N/A');
-  var safeAmount = escapeHtml_(amountText || String((CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000d'));
+  var safeAmount = escapeHtml_(amountText || String((CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'));
   var safeCheckout = escapeHtml_(checkoutUrl || '');
 
   var checkoutBlock = safeCheckout
-    ? '<p><a href="' + safeCheckout + '" target="_blank" rel="noopener noreferrer">Thanh toan qua PayOS</a></p>'
+    ? '<p><a href="' + safeCheckout + '" target="_blank" rel="noopener noreferrer">Thanh toán qua PayOS</a></p>'
     : '';
 
   return '' +
     '<div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;max-width:620px">' +
-    '<p>Chao <strong>' + safeName + '</strong>,</p>' +
-    '<p>Ban da duoc chon thi dau vao ngay <strong>' + safeDate + '</strong>.</p>' +
-    '<p>Ban can dong phi truoc khi nhan link nhom.</p>' +
-    '<p><strong>So tien:</strong> ' + safeAmount + '</p>' +
-    '<p><strong>Noi dung chuyen khoan:</strong> <code>' + safeCode + '</code></p>' +
+    '<p>Chào <strong>' + safeName + '</strong>,</p>' +
+    '<p>Bạn đã được chọn thi đấu vào ngày <strong>' + safeDate + '</strong>.</p>' +
+    '<p>Bạn cần đóng phí trước khi nhận link nhóm.</p>' +
+    '<p><strong>Số tiền:</strong> ' + safeAmount + '</p>' +
+    '<p><strong>Nội dung chuyển khoản:</strong> <code>' + safeCode + '</code></p>' +
     checkoutBlock +
     '<p>' + safeMsg + '</p>' +
-    '<p>Tran trong,<br>Ban to chuc</p>' +
+    '<p>Trân trọng,<br>Ban tổ chức</p>' +
     '</div>';
 }
 
 function buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText) {
   var lines = [
-    'Chao ' + String(name || 'Ban'),
+    'Chào ' + String(name || 'Bạn'),
     '',
-    'Ban da duoc chon thi dau vao ngay ' + String(eventDateText || '') + '.',
-    'So tien: ' + String(amountText || (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000d'),
-    'Noi dung chuyen khoan: ' + String(paymentCode || '')
+    'Bạn đã được chọn thi đấu vào ngày ' + String(eventDateText || '') + '.',
+    'Số tiền: ' + String(amountText || (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
+    'Nội dung chuyển khoản: ' + String(paymentCode || '')
   ];
 
   if (checkoutUrl) {
-    lines.push('Thanh toan PayOS: ' + String(checkoutUrl));
+    lines.push('Thanh toán PayOS: ' + String(checkoutUrl));
   }
 
   if (customMessage) {
     lines.push('', String(customMessage));
   }
 
-  lines.push('', 'Tran trong,', 'Ban to chuc');
+  lines.push('', 'Trân trọng,', 'Ban tổ chức');
   return lines.join('\n');
 }
 
@@ -64,7 +85,7 @@ function savePriorities(payload) {
   var items = Array.isArray(payload.items) ? payload.items : [];
 
   if (!weekKey) {
-    throw new Error('Khong xac dinh duoc tuan de luu uu tien.');
+    throw new Error('Không xác định được tuần để lưu ưu tiên.');
   }
 
   var result = apiPost_('/internal/save-priorities', {
@@ -82,12 +103,12 @@ function sendSelectionEmails(payload) {
   payload = payload || {};
   var selected = Array.isArray(payload.selected) ? payload.selected : [];
   if (!selected.length) {
-    throw new Error('Ban chua chon nguoi nao de gui mail.');
+    throw new Error('Bạn chưa chọn người nào để gửi mail.');
   }
 
   var weekKey = String(payload.weekKey || '').trim();
   if (!weekKey) {
-    throw new Error('Ban can chon tuan truoc khi gui mail.');
+    throw new Error('Bạn cần chọn tuần trước khi gửi mail.');
   }
 
   var eventDate = parseDateInput_(payload.eventDate);
@@ -95,7 +116,7 @@ function sendSelectionEmails(payload) {
 
   var zaloLink = String(payload.zaloLink || '').trim();
   if (!zaloLink) {
-    throw new Error('Ban can nhap link nhom Zalo truoc khi gui.');
+    throw new Error('Bạn cần nhập link nhóm Zalo trước khi gửi.');
   }
 
   var subjectTemplate = String(payload.subject || CONFIG.DEFAULT_SUBJECT || '').trim() || CONFIG.DEFAULT_SUBJECT;
@@ -105,7 +126,7 @@ function sendSelectionEmails(payload) {
 
   var quota = MailApp.getRemainingDailyQuota();
   if (selected.length > quota) {
-    throw new Error('Khong du quota gui mail. Can ' + selected.length + ', con lai ' + quota + '.');
+    throw new Error('Không đủ quota gửi mail. Cần ' + selected.length + ', còn lại ' + quota + '.');
   }
 
   var sentItems = [];
@@ -136,7 +157,7 @@ function sendSelectionEmails(payload) {
         buyerName: name,
         buyerEmail: email,
         amount: Number((CONFIG.PAYMENT && CONFIG.PAYMENT.AMOUNT) || 50000),
-        description: String((CONFIG.PAYMENT && CONFIG.PAYMENT.CODE_PREFIX) || 'GE') + '_' + eventDateKey + '_' + email,
+        description: buildPayosDescription_(eventDateKey, email),
         weekKey: weekKey,
         eventDate: eventDateKey,
         groupLink: zaloLink,
@@ -146,10 +167,10 @@ function sendSelectionEmails(payload) {
 
       MailApp.sendEmail({
         to: email,
-        subject: 'Yeu cau thanh toan phi thi dau ngay ' + eventDateText,
-        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentRes.paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000d'),
-        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentRes.paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000d'),
-        name: CONFIG.MAIL_SENDER_NAME || 'Lop hoc Thanh Man'
+        subject: 'Yêu cầu thanh toán phí thi đấu ngày ' + eventDateText,
+        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentRes.paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
+        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentRes.paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
+        name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
       });
 
       sent++;
@@ -168,7 +189,7 @@ function sendSelectionEmails(payload) {
       to: email,
       subject: groupSubject,
       htmlBody: buildSelectionEmailHtml_(ingame, eventDateText, zaloLink, customMessage, false),
-      name: CONFIG.MAIL_SENDER_NAME || 'Lop hoc Thanh Man'
+      name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
     });
 
     sent++;
@@ -201,7 +222,7 @@ function markPaymentsPaidManual(payload) {
   payload = payload || {};
   var weekKey = String(payload.weekKey || '').trim();
   if (!weekKey) {
-    throw new Error('Ban can chon tuan truoc khi cap nhat thanh toan.');
+    throw new Error('Bạn cần chọn tuần trước khi cập nhật thanh toán.');
   }
 
   var eventDate = parseDateInput_(payload.eventDate);
@@ -209,7 +230,7 @@ function markPaymentsPaidManual(payload) {
 
   var selected = Array.isArray(payload.selected) ? payload.selected : [];
   if (!selected.length) {
-    throw new Error('Ban chua chon nguoi nao de cap nhat thanh toan.');
+    throw new Error('Bạn chưa chọn người nào để cập nhật thanh toán.');
   }
 
   var result = apiPost_('/internal/mark-payments-paid-manual', {

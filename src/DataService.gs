@@ -1,6 +1,6 @@
 ﻿/**
- * Data service (MongoDB-first)
- * Google Sheet responses is intake-only source.
+ * Dịch vụ dữ liệu (ưu tiên MongoDB)
+ * Google Sheet responses chỉ là nguồn nhập liệu.
  */
 
 function ensureSupportSheets_() {
@@ -35,14 +35,14 @@ function enforceFormEmailCollection_() {
   try {
     var form = getTargetForm_();
     if (form.collectsEmail()) {
-      return { ok: true, message: 'Form da bat collect email.' };
+      return { ok: true, message: 'Form đã bật collect email.' };
     }
     form.setCollectEmail(true);
-    return { ok: true, message: 'Da bat collect email tren Form.' };
+    return { ok: true, message: 'Đã bật collect email trên Form.' };
   } catch (error) {
     return {
       ok: false,
-      message: 'Khong the tu dong bat collect email: ' + error.message
+      message: 'Không thể tự động bật collect email: ' + error.message
     };
   }
 }
@@ -100,7 +100,7 @@ function getResponsesSheet_() {
     return firstPossible;
   }
 
-  throw new Error('Khong tim thay sheet responses cua Google Form.');
+  throw new Error('Không tìm thấy sheet responses của Google Form.');
 }
 
 function detectColumns_(headers) {
@@ -175,7 +175,7 @@ function getAllRequests_() {
   var columns = detectColumns_(headers);
 
   if (columns.emailIndex === -1) {
-    throw new Error('Khong tim thay cot Email trong responses.');
+    throw new Error('Không tìm thấy cột Email trong responses.');
   }
 
   var requests = [];

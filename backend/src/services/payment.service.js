@@ -39,6 +39,14 @@ function generatePaymentCode(prefix) {
   return `${p}${token}`.slice(0, 20);
 }
 
+function normalizePayosDescription(rawDescription, fallback) {
+  const text = String(rawDescription || '').trim();
+  if (text) {
+    return text.slice(0, 25);
+  }
+  return String(fallback || '').trim().slice(0, 25);
+}
+
 async function generateUniqueOrderCode() {
   for (let i = 0; i < 12; i += 1) {
     const orderCode = Number(`${Date.now()}${Math.floor(Math.random() * 900 + 100)}`);
@@ -98,7 +106,7 @@ async function createPayment(payload) {
 
     const orderCode = await generateUniqueOrderCode();
     const paymentCode = String(payload.paymentCode || generatePaymentCode(process.env.PAYMENT_CODE_PREFIX || 'GE'));
-    const description = String(payload.description || paymentCode).trim().slice(0, 64);
+    const description = normalizePayosDescription(payload.description, paymentCode);
 
     const returnUrl = String(process.env.PAYOS_RETURN_URL || '').trim() || 'https://payos.vn';
     const cancelUrl = String(process.env.PAYOS_CANCEL_URL || '').trim() || 'https://payos.vn';

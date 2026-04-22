@@ -1,6 +1,6 @@
 ﻿/**
- * Payment helpers (MongoDB-first).
- * Source of truth: backend API + MongoDB.
+ * Tiện ích thanh toán (ưu tiên MongoDB).
+ * Nguồn dữ liệu chuẩn: backend API + MongoDB.
  */
 
 function normalizePaymentStatusCode_(statusCode) {

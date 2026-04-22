@@ -1,26 +1,26 @@
 ﻿/**
- * Pairing service
+ * Dịch vụ ghép cặp.
  */
 
 function suggestPairsByRank(payload) {
   payload = payload || {};
   var weekKey = String(payload.weekKey || '').trim();
   if (!weekKey) {
-    throw new Error('Ban can chon tuan truoc khi ghep cap.');
+    throw new Error('Bạn cần chọn tuần trước khi ghép cặp.');
   }
 
   var pairCount = Number(payload.pairCount || 0);
   if (!pairCount || pairCount < 1) {
-    throw new Error('So cap can ghep phai lon hon 0.');
+    throw new Error('Số cặp cần ghép phải lớn hơn 0.');
   }
   pairCount = Math.floor(pairCount);
 
   var eventDate = parseDateInput_(payload.eventDate);
   if (!eventDate) {
-    throw new Error('Ban can chon ngay thi dau truoc khi ghep cap.');
+    throw new Error('Bạn cần chọn ngày thi đấu trước khi ghép cặp.');
   }
   if (eventDate.getDay() !== 4 && eventDate.getDay() !== 5) {
-    throw new Error('Ngay thi dau chi duoc phep la Thu 5 hoac Thu 6.');
+    throw new Error('Ngày thi đấu chỉ được phép là Thứ 5 hoặc Thứ 6.');
   }
 
   var requests = getWeekRequests_(weekKey);
@@ -36,13 +36,13 @@ function suggestPairsByRank(payload) {
       countAdded: 0,
       countSkipped: 0,
       eventDate: formatDate_(eventDate, 'dd/MM/yyyy'),
-      message: 'Tuan nay chua co du lieu dang ky de ghep cap.'
+      message: 'Tuần này chưa có dữ liệu đăng ký để ghép cặp.'
     };
   }
 
   var groups = {};
   for (var i = 0; i < requests.length; i++) {
-    var rankKey = requests[i].rankNormalized || 'Khong ro';
+    var rankKey = requests[i].rankNormalized || 'Không rõ';
     if (!groups[rankKey]) {
       groups[rankKey] = [];
     }
@@ -134,14 +134,14 @@ function suggestPairsByRank(payload) {
   var missingPairs = Math.max(0, pairCount - actualPairs);
   var eventDateText = formatDate_(eventDate, 'dd/MM/yyyy');
 
-  var message = 'Ghep cap cho ngay ' + eventDateText + ': yeu cau ' + pairCount +
-    ' cap, ghep duoc ' + actualPairs + ' cap.';
+  var message = 'Ghép cặp cho ngày ' + eventDateText + ': yêu cầu ' + pairCount +
+    ' cặp, ghép được ' + actualPairs + ' cặp.';
   if (missingPairs > 0) {
-    message += ' Thieu ' + missingPairs + ' cap do khong du nguoi dong rank.';
+    message += ' Thiếu ' + missingPairs + ' cặp do không đủ người đồng rank.';
   }
-  message += ' Da cap nhat so lan duoc chon: ' + countResult.added + ' nguoi.';
+  message += ' Đã cập nhật số lần được chọn: ' + countResult.added + ' người.';
   if (countResult.skipped > 0) {
-    message += ' Bo qua ' + countResult.skipped + ' nguoi vi da duoc tinh truoc do.';
+    message += ' Bỏ qua ' + countResult.skipped + ' người vì đã được tính trước đó.';
   }
 
   return {
@@ -186,6 +186,6 @@ function toPairPlayer_(row) {
     email: row.email,
     name: row.name,
     ingame: row.ingame || row.name,
-    rank: row.rankNormalized || 'Khong ro'
+    rank: row.rankNormalized || 'Không rõ'
   };
 }

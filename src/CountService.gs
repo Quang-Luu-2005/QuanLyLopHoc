@@ -1,5 +1,5 @@
 ﻿/**
- * Selection counting now stored in MongoDB through backend API.
+ * Đếm số lần được chọn được lưu trên MongoDB qua backend API.
  */
 
 function getSelectionDedupSet_(eventDate) {

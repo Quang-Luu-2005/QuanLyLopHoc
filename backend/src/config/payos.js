@@ -106,7 +106,7 @@ async function createPaymentLink({ orderCode, amount, description, buyerName, bu
   const payload = {
     orderCode: Number(orderCode),
     amount: Number(amount),
-    description: String(description || ''),
+    description: String(description || '').trim().slice(0, 25),
     cancelUrl: String(cancelUrl || ''),
     returnUrl: String(returnUrl || '')
   };
