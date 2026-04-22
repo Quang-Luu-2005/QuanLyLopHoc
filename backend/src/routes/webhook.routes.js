@@ -12,4 +12,8 @@ router.post('/payos', asyncHandler(async (req, res) => {
   res.status(200).json({ ok: true, ...result });
 }));
 
+router.get('/payos', (req, res) => {
+  res.status(200).json({ ok: true, message: 'PayOS webhook endpoint is ready' });
+});
+
 module.exports = router;

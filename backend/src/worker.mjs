@@ -235,6 +235,10 @@ async function handleInternalRoute(method, path, url, body) {
 }
 
 async function handleWebhookRoute(method, path, body) {
+  if (method === "GET" && path === "/webhooks/payos") {
+    return jsonResponse(200, { ok: true, message: "PayOS webhook endpoint is ready" });
+  }
+
   if (method === "POST" && path === "/webhooks/payos") {
     const result = await paymentService.processPayosWebhook(body || {});
     return jsonResponse(200, { ok: true, ...result });
