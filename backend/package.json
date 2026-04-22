@@ -9,13 +9,13 @@
     "start": "node src/server.js",
     "dev:worker": "wrangler dev --remote",
     "deploy:worker": "wrangler deploy",
-    "test-db": "node -e \"require('./src/db/pool').testConnection().then(()=>process.exit(0)).catch(()=>process.exit(1))\""
+    "test-db": "node -e \"require('./src/db/pool').testConnection().then(()=>{console.log('MongoDB OK');process.exit(0)}).catch(e=>{console.error(e.message);process.exit(1)})\""
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "pg": "^8.16.3"
+    "mongoose": "^8.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4",

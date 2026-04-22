@@ -1,137 +1,122 @@
-﻿const { pool } = require('../db/pool');
+const { connect } = require('../db/pool');
+const FormSubmission = require('../models/FormSubmission');
+const PlayDate = require('../models/PlayDate');
+const { toDateOnly, formatDateOnly, getWeekKeyFromDate } = require('../utils/date');
 
-function runner(client) {
-  return client || pool;
-}
+async function upsertFormSubmission(session, input) {
+  await connect();
+  const sourceSheetRow = input.sourceSheetRow ? Number(input.sourceSheetRow) : null;
+  const sourceSheetName = input.sourceSheetName ? String(input.sourceSheetName).trim() : null;
+  const weekKey = getWeekKeyFromDate(input.submittedAt) || null;
 
-async function upsertFormSubmission(client, input) {
-  const db = runner(client);
-  const result = await db.query(
-    `
-      INSERT INTO form_submissions (
-        player_id,
-        submitted_at,
-        source_sheet_row,
-        source_sheet_name
-      )
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (source_sheet_name, source_sheet_row)
-      DO UPDATE SET
-        player_id = EXCLUDED.player_id,
-        submitted_at = EXCLUDED.submitted_at,
-        updated_at = NOW()
-      RETURNING *
-    `,
-    [
-      Number(input.playerId),
-      input.submittedAt,
-      input.sourceSheetRow ? Number(input.sourceSheetRow) : null,
-      input.sourceSheetName ? String(input.sourceSheetName).trim() : null
-    ]
-  );
+  const opts = { new: true, setDefaultsOnInsert: true };
+  if (session) opts.session = session;
 
-  return result.rows[0] || null;
-}
-
-async function upsertPlayDate(client, playDate) {
-  const db = runner(client);
-  const result = await db.query(
-    `
-      INSERT INTO play_dates (play_date)
-      VALUES ($1::date)
-      ON CONFLICT (play_date)
-      DO UPDATE SET play_date = EXCLUDED.play_date
-      RETURNING *
-    `,
-    [playDate]
-  );
-  return result.rows[0] || null;
-}
-
-async function replaceSubmissionAvailableDates(client, submissionId, playDateIds) {
-  const db = runner(client);
-
-  await db.query('DELETE FROM submission_available_dates WHERE submission_id = $1', [submissionId]);
-
-  if (!Array.isArray(playDateIds) || !playDateIds.length) {
-    return;
-  }
-
-  for (let i = 0; i < playDateIds.length; i += 1) {
-    await db.query(
-      `
-        INSERT INTO submission_available_dates (submission_id, play_date_id)
-        VALUES ($1, $2)
-        ON CONFLICT (submission_id, play_date_id)
-        DO NOTHING
-      `,
-      [submissionId, playDateIds[i]]
+  if (sourceSheetName !== null && sourceSheetRow !== null) {
+    opts.upsert = true;
+    return FormSubmission.findOneAndUpdate(
+      { sourceSheetName, sourceSheetRow },
+      {
+        $set: { playerId: input.playerId, submittedAt: input.submittedAt, weekKey },
+        $setOnInsert: { sourceSheetName, sourceSheetRow }
+      },
+      opts
     );
   }
+
+  const doc = new FormSubmission({
+    playerId: input.playerId,
+    submittedAt: input.submittedAt,
+    weekKey,
+    sourceSheetRow,
+    sourceSheetName
+  });
+  return doc.save(session ? { session } : {});
+}
+
+async function upsertPlayDate(session, playDate) {
+  await connect();
+  const dateObj = toDateOnly(playDate);
+  if (!dateObj) return null;
+
+  const opts = { new: true, upsert: true, setDefaultsOnInsert: true };
+  if (session) opts.session = session;
+
+  return PlayDate.findOneAndUpdate(
+    { playDate: dateObj },
+    { $setOnInsert: { playDate: dateObj } },
+    opts
+  );
+}
+
+async function replaceSubmissionAvailableDates(session, submissionId, playDateIds) {
+  await connect();
+  const opts = {};
+  if (session) opts.session = session;
+
+  await FormSubmission.findByIdAndUpdate(
+    submissionId,
+    { $set: { availableDateIds: playDateIds || [] } },
+    opts
+  );
 }
 
 async function listWeekKeys() {
-  const result = await pool.query(
-    `
-      SELECT DISTINCT date_trunc('week', submitted_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS week_key
-      FROM form_submissions
-      ORDER BY week_key DESC
-      LIMIT 120
-    `
-  );
-
-  return result.rows.map((row) => row.week_key);
+  await connect();
+  const result = await FormSubmission.distinct('weekKey');
+  return result
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a))
+    .slice(0, 120);
 }
 
 async function listWeekLatestSubmissions(weekKey) {
-  const result = await pool.query(
-    `
-      WITH latest AS (
-        SELECT DISTINCT ON (LOWER(p.email))
-          fs.id AS submission_id,
-          fs.player_id,
-          fs.submitted_at,
-          p.email,
-          p.ingame_name,
-          p.is_student,
-          p.highest_rank
-        FROM form_submissions fs
-        JOIN players p ON p.id = fs.player_id
-        WHERE date_trunc('week', fs.submitted_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $1::date
-        ORDER BY LOWER(p.email), fs.submitted_at DESC, fs.id DESC
-      )
-      SELECT
-        submission_id AS "submissionId",
-        player_id AS "playerId",
-        submitted_at AS "submittedAt",
-        email,
-        ingame_name AS "ingameName",
-        is_student AS "isStudent",
-        highest_rank AS "highestRank"
-      FROM latest
-      ORDER BY submitted_at ASC, email ASC
-    `,
-    [weekKey]
-  );
+  await connect();
 
-  return result.rows;
+  const submissions = await FormSubmission.find({ weekKey: String(weekKey) })
+    .populate('playerId', 'email ingameName isStudent highestRank')
+    .sort({ submittedAt: -1, _id: -1 })
+    .lean({ virtuals: true });
+
+  // Keep latest submission per email (already sorted desc, first = latest)
+  const seen = {};
+  const latest = [];
+  for (const s of submissions) {
+    const emailKey = String(s.playerId?.email || '').toLowerCase();
+    if (!emailKey || seen[emailKey]) continue;
+    seen[emailKey] = true;
+    latest.push(s);
+  }
+
+  // Final sort: submitted_at ASC, email ASC
+  latest.sort((a, b) => {
+    const timeA = a.submittedAt?.getTime() || 0;
+    const timeB = b.submittedAt?.getTime() || 0;
+    if (timeA !== timeB) return timeA - timeB;
+    return String(a.playerId?.email || '').localeCompare(String(b.playerId?.email || ''));
+  });
+
+  return latest.map((s) => ({
+    submissionId: s.id,
+    playerId: String(s.playerId?._id || s.playerId?.id || ''),
+    submittedAt: s.submittedAt,
+    email: s.playerId?.email,
+    ingameName: s.playerId?.ingameName,
+    isStudent: s.playerId?.isStudent,
+    highestRank: s.playerId?.highestRank
+  }));
 }
 
-async function getLatestSubmissionForPlayerWeek(client, playerId, weekKey) {
-  const db = runner(client);
-  const result = await db.query(
-    `
-      SELECT *
-      FROM form_submissions
-      WHERE player_id = $1
-        AND date_trunc('week', submitted_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
-      ORDER BY submitted_at DESC, id DESC
-      LIMIT 1
-    `,
-    [Number(playerId), weekKey]
-  );
+async function getLatestSubmissionForPlayerWeek(session, playerId, weekKey) {
+  await connect();
+  const opts = { sort: { submittedAt: -1, _id: -1 } };
+  if (session) opts.session = session;
 
-  return result.rows[0] || null;
+  return FormSubmission.findOne(
+    { playerId, weekKey: String(weekKey) },
+    null,
+    opts
+  );
 }
 
 module.exports = {

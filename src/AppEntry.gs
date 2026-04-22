@@ -1,5 +1,5 @@
 ﻿/**
- * App entry (PostgreSQL-first).
+ * App entry (MongoDB-first).
  */
 
 function onOpen() {
@@ -7,7 +7,7 @@ function onOpen() {
     .createMenu('GatherEasy')
     .addItem('Mo dashboard chon nguoi', 'showDashboard')
     .addItem('Khoi tao he thong', 'initializeGatherEasy')
-    .addItem('Dong bo form -> PostgreSQL', 'syncPlayersManual')
+    .addItem('Dong bo form -> MongoDB', 'syncPlayersManual')
     .addItem('Cai trigger onFormSubmit', 'installTriggers')
     .addItem('Xu ly gui link nhom sau thanh toan', 'processPaidPaymentMailsFromApi_')
     .addItem('Kiem tra collect email cua Form', 'checkFormEmailSetup')

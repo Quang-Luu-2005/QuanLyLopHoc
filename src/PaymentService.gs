@@ -1,6 +1,6 @@
 ﻿/**
- * Payment helpers (PostgreSQL-first).
- * Source of truth: backend API + PostgreSQL.
+ * Payment helpers (MongoDB-first).
+ * Source of truth: backend API + MongoDB.
  */
 
 function normalizePaymentStatusCode_(statusCode) {

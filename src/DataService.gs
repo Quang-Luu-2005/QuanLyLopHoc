@@ -1,5 +1,5 @@
 ﻿/**
- * Data service (PostgreSQL-first)
+ * Data service (MongoDB-first)
  * Google Sheet responses is intake-only source.
  */
 
@@ -348,9 +348,9 @@ function findLatestResponseRowForWeekEmail_(values, columns, email, weekKey) {
 }
 
 function syncPaymentStatusToResponses_(requestRow) {
-  return { ok: true, reason: 'postgres_source_of_truth' };
+  return { ok: true, reason: 'mongo_source_of_truth' };
 }
 
 function syncPaymentStatusToResponsesSafe_(requestRow) {
-  return { ok: true, reason: 'postgres_source_of_truth' };
+  return { ok: true, reason: 'mongo_source_of_truth' };
 }

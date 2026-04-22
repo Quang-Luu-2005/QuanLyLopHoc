@@ -12,6 +12,5 @@ PAYOS_API_BASE = "https://api-merchant.payos.vn"
 PAYMENT_CODE_PREFIX = "GE"
 PORT = "3000"
 
-[[hyperdrive]]
-binding = "HYPERDRIVE"
-id = "REPLACE_WITH_HYPERDRIVE_ID"
+# MongoDB URI được set qua wrangler secret (wrangler secret put MONGO_URI)
+# hoặc thêm vào [vars] bên trên nếu không nhạy cảm

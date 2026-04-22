@@ -1,4 +1,4 @@
-# Backend PostgreSQL API
+# Backend MongoDB API
 
 ## 1) Local setup
 
@@ -10,17 +10,17 @@ npm install
 
 Fill `.env`:
 
-- `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD`
+- `MONGO_URI` (MongoDB Atlas or MongoDB server URI)
 - `INTERNAL_API_KEY`
 - `PAYOS_CLIENT_ID`
 - `PAYOS_API_KEY`
 - `PAYOS_CHECKSUM_KEY`
 - optional: `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL`
 
-Run SQL schema:
+Run connectivity test:
 
-```sql
-\i ../sql/shce.sql
+```bash
+npm run test-db
 ```
 
 Start local server:
@@ -35,63 +35,58 @@ Health check:
 curl http://localhost:3000/health
 ```
 
-## 2) Deploy to Cloudflare Workers + Hyperdrive
+Internal route check (must include `x-internal-api-key`):
+
+```bash
+curl -H "x-internal-api-key: <INTERNAL_API_KEY>" http://localhost:3000/internal/weeks
+```
+
+## 2) Deploy to Cloudflare Workers (MongoDB)
 
 ### 2.1 Prerequisites
 
 - Cloudflare account with Workers enabled
-- PostgreSQL database reachable from Cloudflare
-  - If DB is private/internal, use Hyperdrive private DB + Tunnel flow
-  - Docs: https://developers.cloudflare.com/hyperdrive/configuration/connect-to-private-database/
+- MongoDB instance reachable from Cloudflare Workers
 - Wrangler login:
 
 ```bash
 npx wrangler login
 ```
 
-### 2.2 Create Hyperdrive
-
-Create Hyperdrive from your PostgreSQL connection string:
+### 2.2 First deploy (create Worker)
 
 ```bash
-npx wrangler hyperdrive create quanlylophoc-hd --connection-string="postgres://USER:PASSWORD@HOST:5432/DBNAME"
+npm run deploy:worker
 ```
 
-Copy returned Hyperdrive `id` and set it in `wrangler.toml`:
+### 2.3 Configure Worker secrets
 
-```toml
-[[hyperdrive]]
-binding = "HYPERDRIVE"
-id = "YOUR_HYPERDRIVE_ID"
-```
-
-### 2.3 Configure Worker secrets / vars
-
-Set secrets (required):
+Required:
 
 ```bash
+npx wrangler secret put MONGO_URI
 npx wrangler secret put INTERNAL_API_KEY
 npx wrangler secret put PAYOS_CLIENT_ID
 npx wrangler secret put PAYOS_API_KEY
 npx wrangler secret put PAYOS_CHECKSUM_KEY
 ```
 
-Optional secrets:
+Optional:
 
 ```bash
 npx wrangler secret put PAYOS_RETURN_URL
 npx wrangler secret put PAYOS_CANCEL_URL
 ```
 
-Non-secret vars are in `wrangler.toml` (`APP_TIMEZONE`, `PAYOS_API_BASE`, `PAYMENT_CODE_PREFIX`).
+Non-secret vars are in `wrangler.toml` (`APP_TIMEZONE`, `PAYOS_API_BASE`, `PAYMENT_CODE_PREFIX`, `PORT`).
 
-### 2.4 Deploy
+### 2.4 Deploy again after setting secrets
 
 ```bash
 npm run deploy:worker
 ```
 
-After deploy, you will get URL like:
+You will get URL like:
 
 ```text
 https://quanlylophoc-api.<subdomain>.workers.dev
@@ -99,13 +94,16 @@ https://quanlylophoc-api.<subdomain>.workers.dev
 
 ### 2.5 Production checks
 
-Health check:
-
 ```bash
 curl https://quanlylophoc-api.<subdomain>.workers.dev/health
 ```
 
-Webhook test (example):
+```bash
+curl -H "x-internal-api-key: <INTERNAL_API_KEY>" \
+  "https://quanlylophoc-api.<subdomain>.workers.dev/internal/weeks"
+```
+
+Webhook quick test:
 
 ```bash
 curl -X POST https://quanlylophoc-api.<subdomain>.workers.dev/webhooks/payos \
@@ -146,9 +144,9 @@ Then re-deploy Apps Script Web App and run dashboard reload.
 - Webhook
   - `POST /webhooks/payos`
 
-## 5) Cloudflare-specific notes
+## 5) Notes
 
-- Worker runtime path is `src/worker.mjs`.
-- This runtime auto-maps `env.HYPERDRIVE.connectionString` -> `process.env.DATABASE_URL`.
-- Local mode (`npm run dev`) still uses `.env`.
-- `pg` is pinned at `>=8.16.3` to match Hyperdrive requirement.
+- This backend uses MongoDB (Mongoose).
+- Worker runtime file is `src/worker.mjs`.
+- Worker runtime maps `env.MONGO_URI` to `process.env.MONGO_URI`.
+- Optional MongoDB index bootstrap script: `sql/mongo-init.js`.

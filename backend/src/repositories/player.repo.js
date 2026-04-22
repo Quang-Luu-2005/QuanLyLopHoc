@@ -1,89 +1,59 @@
-﻿const { pool } = require('../db/pool');
+const { connect } = require('../db/pool');
+const Player = require('../models/Player');
 
-function runner(client) {
-  return client || pool;
+async function upsertPlayer(session, input) {
+  await connect();
+  const email = String(input.email || '').trim().toLowerCase();
+  const set = {
+    ingameName: String(input.ingameName || '').trim(),
+    isStudent: !!input.isStudent
+  };
+  if (input.zaloPhone) set.zaloPhone = String(input.zaloPhone).trim();
+  if (input.highestRank) set.highestRank = String(input.highestRank).trim();
+
+  const opts = { new: true, upsert: true, setDefaultsOnInsert: true };
+  if (session) opts.session = session;
+
+  return Player.findOneAndUpdate({ email }, { $set: set }, opts);
 }
 
-async function upsertPlayer(client, input) {
-  const db = runner(client);
-  const result = await db.query(
-    `
-      INSERT INTO players (
-        email,
-        ingame_name,
-        zalo_phone,
-        is_student,
-        highest_rank
-      )
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (email)
-      DO UPDATE SET
-        ingame_name = EXCLUDED.ingame_name,
-        zalo_phone = COALESCE(EXCLUDED.zalo_phone, players.zalo_phone),
-        is_student = EXCLUDED.is_student,
-        highest_rank = COALESCE(EXCLUDED.highest_rank, players.highest_rank),
-        updated_at = NOW()
-      RETURNING *
-    `,
-    [
-      String(input.email || '').trim().toLowerCase(),
-      String(input.ingameName || '').trim(),
-      input.zaloPhone ? String(input.zaloPhone).trim() : null,
-      !!input.isStudent,
-      input.highestRank ? String(input.highestRank).trim() : null
-    ]
-  );
-
-  return result.rows[0] || null;
+async function getPlayerByEmail(session, email) {
+  await connect();
+  const opts = {};
+  if (session) opts.session = session;
+  return Player.findOne({ email: String(email || '').trim().toLowerCase() }, null, opts);
 }
 
-async function getPlayerByEmail(client, email) {
-  const db = runner(client);
-  const result = await db.query(
-    'SELECT * FROM players WHERE email = $1 LIMIT 1',
-    [String(email || '').trim().toLowerCase()]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function getPlayerById(client, playerId) {
-  const db = runner(client);
-  const result = await db.query(
-    'SELECT * FROM players WHERE id = $1 LIMIT 1',
-    [Number(playerId)]
-  );
-
-  return result.rows[0] || null;
+async function getPlayerById(session, playerId) {
+  await connect();
+  const opts = {};
+  if (session) opts.session = session;
+  try {
+    return Player.findById(playerId, null, opts);
+  } catch {
+    return null;
+  }
 }
 
 async function listPlayers(filters) {
-  const where = [];
-  const params = [];
-
+  await connect();
+  const query = {};
   if (filters && filters.email) {
-    params.push(`%${String(filters.email).trim().toLowerCase()}%`);
-    where.push(`LOWER(email) LIKE $${params.length}`);
+    const escaped = String(filters.email).trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.email = { $regex: escaped, $options: 'i' };
   }
 
-  const sql = `
-    SELECT
-      id,
-      email,
-      ingame_name AS "ingameName",
-      zalo_phone AS "zaloPhone",
-      is_student AS "isStudent",
-      highest_rank AS "highestRank",
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
-    FROM players
-    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-    ORDER BY updated_at DESC, id DESC
-    LIMIT 500
-  `;
-
-  const result = await pool.query(sql, params);
-  return result.rows;
+  const players = await Player.find(query).sort({ updatedAt: -1, _id: -1 }).limit(500).lean({ virtuals: true });
+  return players.map((p) => ({
+    id: p.id,
+    email: p.email,
+    ingameName: p.ingameName,
+    zaloPhone: p.zaloPhone || null,
+    isStudent: p.isStudent,
+    highestRank: p.highestRank || null,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt
+  }));
 }
 
 module.exports = {

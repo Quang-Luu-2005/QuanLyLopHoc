@@ -1,4 +1,4 @@
-﻿const { withTransaction } = require('../db/pool');
+const { withTransaction } = require('../db/pool');
 const payos = require('../config/payos');
 const playerRepo = require('../repositories/player.repo');
 const submissionRepo = require('../repositories/submission.repo');
@@ -53,9 +53,9 @@ async function generateUniqueOrderCode() {
   throw err;
 }
 
-async function resolvePlayer(client, payload) {
+async function resolvePlayer(session, payload) {
   if (payload.playerId) {
-    const byId = await playerRepo.getPlayerById(client, payload.playerId);
+    const byId = await playerRepo.getPlayerById(session, payload.playerId);
     if (byId) {
       return byId;
     }
@@ -70,7 +70,7 @@ async function resolvePlayer(client, payload) {
 
   const ingameName = String(payload.ingameName || payload.buyerName || email.split('@')[0]).trim();
 
-  return playerRepo.upsertPlayer(client, {
+  return playerRepo.upsertPlayer(session, {
     email,
     ingameName,
     isStudent: !!payload.isStudent,
@@ -90,11 +90,11 @@ async function createPayment(payload) {
 
   const amount = getPaymentAmount(payload.amount);
 
-  return withTransaction(async (client) => {
-    const player = await resolvePlayer(client, payload);
+  return withTransaction(async (session) => {
+    const player = await resolvePlayer(session, payload);
     const latestSubmission = payload.submissionId
-      ? { id: Number(payload.submissionId) }
-      : await submissionRepo.getLatestSubmissionForPlayerWeek(client, player.id, weekKey);
+      ? { id: String(payload.submissionId) }
+      : await submissionRepo.getLatestSubmissionForPlayerWeek(session, player.id, weekKey);
 
     const orderCode = await generateUniqueOrderCode();
     const paymentCode = String(payload.paymentCode || generatePaymentCode(process.env.PAYMENT_CODE_PREFIX || 'GE'));
@@ -107,32 +107,32 @@ async function createPayment(payload) {
       orderCode,
       amount,
       description,
-      buyerName: payload.buyerName || player.ingame_name,
+      buyerName: payload.buyerName || player.ingameName,
       buyerEmail: payload.buyerEmail || player.email,
       returnUrl,
       cancelUrl
     });
 
-    const existing = await paymentRepo.getLatestPaymentByPlayerWeekEvent(client, player.id, weekKey, eventDate);
+    const existing = await paymentRepo.getLatestPaymentByPlayerWeekEvent(session, player.id, weekKey, eventDate);
 
     let payment;
     if (existing) {
-      payment = await paymentRepo.updatePaymentById(client, existing.id, {
-        submission_id: latestSubmission ? latestSubmission.id : null,
-        order_code: Number(payosData.orderCode || orderCode),
-        payment_code: paymentCode,
-        payment_link_id: payosData.paymentLinkId || null,
-        checkout_url: payosData.checkoutUrl || null,
-        qr_code: payosData.qrCode || null,
+      payment = await paymentRepo.updatePaymentById(session, existing.id, {
+        submissionId: latestSubmission ? latestSubmission.id : null,
+        orderCode: Number(payosData.orderCode || orderCode),
+        paymentCode,
+        paymentLinkId: payosData.paymentLinkId || null,
+        checkoutUrl: payosData.checkoutUrl || null,
+        qrCode: payosData.qrCode || null,
         amount,
-        payment_status: 'pending',
-        need_payment: true,
-        group_link: payload.groupLink || existing.group_link || null,
-        support_message: payload.supportMessage || existing.support_message || null,
-        last_error: null
+        paymentStatus: 'pending',
+        needPayment: true,
+        groupLink: payload.groupLink || existing.groupLink || null,
+        supportMessage: payload.supportMessage || existing.supportMessage || null,
+        lastError: null
       });
     } else {
-      payment = await paymentRepo.insertPayment(client, {
+      payment = await paymentRepo.insertPayment(session, {
         playerId: player.id,
         submissionId: latestSubmission ? latestSubmission.id : null,
         weekKey,
@@ -154,12 +154,12 @@ async function createPayment(payload) {
       paymentId: payment.id,
       playerId: player.id,
       submissionId: latestSubmission ? latestSubmission.id : null,
-      orderCode: Number(payment.order_code),
-      paymentLinkId: payment.payment_link_id || '',
-      checkoutUrl: payment.checkout_url || '',
-      qrCode: payment.qr_code || '',
+      orderCode: Number(payment.orderCode),
+      paymentLinkId: payment.paymentLinkId || '',
+      checkoutUrl: payment.checkoutUrl || '',
+      qrCode: payment.qrCode || '',
       amount: Number(payment.amount || amount),
-      paymentCode: payment.payment_code || paymentCode
+      paymentCode: payment.paymentCode || paymentCode
     };
   });
 }
@@ -187,7 +187,7 @@ async function markPaymentsPaidManual(payload) {
   let skippedNoPaymentNeeded = 0;
   let skippedInvalid = 0;
 
-  await withTransaction(async (client) => {
+  await withTransaction(async (session) => {
     for (let i = 0; i < selected.length; i += 1) {
       const item = selected[i] || {};
       const email = normalizeEmail(item.email);
@@ -206,7 +206,7 @@ async function markPaymentsPaidManual(payload) {
         continue;
       }
 
-      const player = await resolvePlayer(client, {
+      const player = await resolvePlayer(session, {
         email,
         ingameName: item.ingame || item.name,
         buyerName: item.name,
@@ -214,7 +214,7 @@ async function markPaymentsPaidManual(payload) {
         highestRank: item.rank
       });
 
-      const existing = await paymentRepo.getLatestPaymentByPlayerWeekEvent(client, player.id, weekKey, eventDate);
+      const existing = await paymentRepo.getLatestPaymentByPlayerWeekEvent(session, player.id, weekKey, eventDate);
       const currentCode = normalizeStatusCodeFromPaymentRow(existing);
 
       if (currentCode === 'PAID' || currentCode === 'LINK_SENT') {
@@ -223,19 +223,19 @@ async function markPaymentsPaidManual(payload) {
       }
 
       if (existing) {
-        await paymentRepo.updatePaymentById(client, existing.id, {
-          payment_status: 'paid',
-          paid_at: new Date(),
-          paid_amount: amount,
-          paid_content: 'MANUAL_UI_UPDATE',
-          payment_ref: 'MANUAL_UI',
-          group_link: payload.zaloLink || existing.group_link || null,
-          support_message: payload.supportMessage || existing.support_message || null,
-          last_error: null
+        await paymentRepo.updatePaymentById(session, existing.id, {
+          paymentStatus: 'paid',
+          paidAt: new Date(),
+          paidAmount: amount,
+          paidContent: 'MANUAL_UI_UPDATE',
+          paymentRef: 'MANUAL_UI',
+          groupLink: payload.zaloLink || existing.groupLink || null,
+          supportMessage: payload.supportMessage || existing.supportMessage || null,
+          lastError: null
         });
       } else {
         const orderCode = await generateUniqueOrderCode();
-        await paymentRepo.insertPayment(client, {
+        await paymentRepo.insertPayment(session, {
           playerId: player.id,
           submissionId: null,
           weekKey,
@@ -306,7 +306,7 @@ async function getReadyGroupMails(cooldownMinutes) {
 }
 
 async function markMailSent(payload) {
-  const paymentId = Number(payload && payload.paymentId);
+  const paymentId = String((payload && payload.paymentId) || '').trim();
   if (!paymentId) {
     const err = new Error('paymentId is required');
     err.statusCode = 400;
@@ -314,18 +314,18 @@ async function markMailSent(payload) {
   }
 
   const success = payload && payload.success !== false;
-  const updated = await withTransaction(async (client) => {
+  const updated = await withTransaction(async (session) => {
     if (success) {
-      return paymentRepo.updatePaymentById(client, paymentId, {
-        group_mail_sent_at: new Date(),
-        last_mail_at: new Date(),
-        last_error: null
+      return paymentRepo.updatePaymentById(session, paymentId, {
+        groupMailSentAt: new Date(),
+        lastMailAt: new Date(),
+        lastError: null
       });
     }
 
-    return paymentRepo.updatePaymentById(client, paymentId, {
-      last_mail_at: new Date(),
-      last_error: String((payload && payload.error) || 'MAIL_SEND_FAILED')
+    return paymentRepo.updatePaymentById(session, paymentId, {
+      lastMailAt: new Date(),
+      lastError: String((payload && payload.error) || 'MAIL_SEND_FAILED')
     });
   });
 
@@ -373,10 +373,10 @@ async function processPayosWebhook(payload) {
   const fields = extractWebhookFields(payload);
   const mappedStatus = fields.successFlag ? 'paid' : payos.mapPayosStatus(fields.statusRaw);
 
-  return withTransaction(async (client) => {
+  return withTransaction(async (session) => {
     const payment = await paymentRepo.findPaymentByOrderOrLink(fields.orderCode, fields.paymentLinkId);
 
-    await paymentEventRepo.insertPaymentEvent(client, {
+    await paymentEventRepo.insertPaymentEvent(session, {
       paymentId: payment ? payment.id : null,
       orderCode: fields.orderCode || null,
       eventType: mappedStatus,
@@ -392,31 +392,31 @@ async function processPayosWebhook(payload) {
     }
 
     const patch = {
-      payment_status: mappedStatus,
-      payment_ref: fields.reference || payment.payment_ref || null,
-      paid_content: fields.description || payment.paid_content || null,
-      paid_amount: fields.amount || payment.paid_amount || null,
-      last_error: mappedStatus === 'paid' ? null : payment.last_error
+      paymentStatus: mappedStatus,
+      paymentRef: fields.reference || payment.paymentRef || null,
+      paidContent: fields.description || payment.paidContent || null,
+      paidAmount: fields.amount || payment.paidAmount || null,
+      lastError: mappedStatus === 'paid' ? null : payment.lastError
     };
 
-    if (mappedStatus === 'paid' && !payment.paid_at) {
-      patch.paid_at = new Date();
+    if (mappedStatus === 'paid' && !payment.paidAt) {
+      patch.paidAt = new Date();
     }
 
     if (fields.paymentLinkId) {
-      patch.payment_link_id = String(fields.paymentLinkId);
+      patch.paymentLinkId = String(fields.paymentLinkId);
     }
     if (fields.orderCode) {
-      patch.order_code = Number(fields.orderCode);
+      patch.orderCode = Number(fields.orderCode);
     }
 
-    const updated = await paymentRepo.updatePaymentById(client, payment.id, patch);
+    const updated = await paymentRepo.updatePaymentById(session, payment.id, patch);
 
     return {
       matched: true,
       paymentId: payment.id,
-      orderCode: Number(updated.order_code),
-      paymentStatus: updated.payment_status,
+      orderCode: Number(updated.orderCode),
+      paymentStatus: updated.paymentStatus,
       paymentStatusCode: normalizeStatusCodeFromPaymentRow(updated)
     };
   });

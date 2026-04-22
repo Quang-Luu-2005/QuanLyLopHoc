@@ -1,5 +1,5 @@
 ﻿/**
- * Selection service (PostgreSQL-first).
+ * Selection service (MongoDB-first).
  */
 
 function validateEventDate_(eventDate) {

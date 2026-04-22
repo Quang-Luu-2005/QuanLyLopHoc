@@ -1,81 +1,62 @@
-﻿const { pool } = require('../db/pool');
-
-function runner(client) {
-  return client || pool;
-}
+const { connect } = require('../db/pool');
+const SelectionCountLog = require('../models/SelectionCountLog');
 
 async function listSelectionCountMap() {
-  const result = await pool.query(
-    `
-      SELECT LOWER(email) AS email_key, COUNT(*)::int AS selected_count
-      FROM selection_count_logs
-      GROUP BY LOWER(email)
-    `
-  );
+  await connect();
+  const result = await SelectionCountLog.aggregate([
+    {
+      $group: {
+        _id: { $toLower: '$email' },
+        selectedCount: { $sum: 1 }
+      }
+    }
+  ]);
 
   const map = {};
-  result.rows.forEach((row) => {
-    map[row.email_key] = Number(row.selected_count || 0);
+  result.forEach((r) => {
+    map[r._id] = r.selectedCount;
   });
-
   return map;
 }
 
-async function listSelectionDedupMap(client, weekKey, eventDate) {
-  const db = runner(client);
-  const result = await db.query(
-    `
-      SELECT LOWER(email) AS email_key
-      FROM selection_count_logs
-      WHERE week_key = $1::date AND event_date = $2::date
-    `,
-    [weekKey, eventDate]
-  );
+async function listSelectionDedupMap(session, weekKey, eventDate) {
+  await connect();
+  const opts = {};
+  if (session) opts.session = session;
+
+  const rows = await SelectionCountLog.find(
+    { weekKey: String(weekKey), eventDate: String(eventDate) },
+    { email: 1 },
+    opts
+  ).lean();
 
   const map = {};
-  result.rows.forEach((row) => {
-    map[row.email_key] = true;
+  rows.forEach((row) => {
+    map[String(row.email || '').toLowerCase()] = true;
   });
-
   return map;
 }
 
-async function insertSelectionCountLogs(client, rows) {
-  const db = runner(client);
+async function insertSelectionCountLogs(session, rows) {
+  await connect();
   let inserted = 0;
 
-  for (let i = 0; i < rows.length; i += 1) {
-    const item = rows[i];
-
-    const result = await db.query(
-      `
-        INSERT INTO selection_count_logs (
-          week_key,
-          event_date,
-          email,
-          name,
-          ingame,
-          rank,
-          source
-        )
-        VALUES ($1::date, $2::date, $3, $4, $5, $6, $7)
-        ON CONFLICT (week_key, event_date, email)
-        DO NOTHING
-        RETURNING id
-      `,
-      [
-        item.weekKey,
-        item.eventDate,
-        String(item.email || '').trim().toLowerCase(),
-        item.name ? String(item.name) : null,
-        item.ingame ? String(item.ingame) : null,
-        item.rank ? String(item.rank) : null,
-        item.source ? String(item.source) : null
-      ]
-    );
-
-    if (result.rowCount > 0) {
+  for (const item of rows) {
+    try {
+      const doc = new SelectionCountLog({
+        weekKey: String(item.weekKey),
+        eventDate: String(item.eventDate),
+        email: String(item.email || '').trim().toLowerCase(),
+        name: item.name ? String(item.name) : null,
+        ingame: item.ingame ? String(item.ingame) : null,
+        rank: item.rank ? String(item.rank) : null,
+        source: item.source ? String(item.source) : null
+      });
+      await doc.save(session ? { session } : {});
       inserted += 1;
+    } catch (e) {
+      if (e.code === 11000) continue;
+      throw e;
     }
   }
 

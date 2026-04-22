@@ -1,91 +1,60 @@
-﻿require('dotenv').config();
-const { Pool } = require('pg');
+require('dotenv').config();
+const mongoose = require('mongoose');
 
-function toIntSafe(value, fallback) {
-  const num = Number(value);
-  if (!num || Number.isNaN(num) || num < 0) {
-    return fallback;
-  }
-  return Math.floor(num);
+const MONGO_URI = String(process.env.MONGO_URI || '').trim();
+
+if (!MONGO_URI) {
+  console.warn('[db] Missing MONGO_URI env variable.');
 }
 
-function buildPoolConfigFromEnv() {
-  const connectionString = String(process.env.DATABASE_URL || process.env.HYPERDRIVE_CONNECTION_STRING || '').trim();
-  if (connectionString) {
-    return {
-      connectionString,
-      max: toIntSafe(process.env.PG_POOL_MAX, 8),
-      idleTimeoutMillis: toIntSafe(process.env.PG_IDLE_TIMEOUT_MS, 10000),
-      connectionTimeoutMillis: toIntSafe(process.env.PG_CONN_TIMEOUT_MS, 10000)
-    };
+mongoose.set('strictQuery', false);
+
+let connectPromise = null;
+
+function connect() {
+  if (mongoose.connection.readyState >= 1) return Promise.resolve();
+  if (!connectPromise) {
+    connectPromise = mongoose.connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000
+    }).catch((err) => {
+      connectPromise = null;
+      throw err;
+    });
   }
-
-  const host = String(process.env.DB_HOST || '').trim();
-  const database = String(process.env.DB_NAME || '').trim();
-  const user = String(process.env.DB_USER || '').trim();
-  const password = String(process.env.DB_PASSWORD || '');
-  const port = toIntSafe(process.env.DB_PORT, 5432);
-
-  if (!host || !database || !user) {
-    return null;
-  }
-
-  return {
-    host,
-    port,
-    database,
-    user,
-    password,
-    max: toIntSafe(process.env.PG_POOL_MAX, 8),
-    idleTimeoutMillis: toIntSafe(process.env.PG_IDLE_TIMEOUT_MS, 10000),
-    connectionTimeoutMillis: toIntSafe(process.env.PG_CONN_TIMEOUT_MS, 10000)
-  };
+  return connectPromise;
 }
 
-const basePoolConfig = buildPoolConfigFromEnv();
-
-if (!basePoolConfig) {
-  // Keep process alive for local lint/compile, but runtime requests will fail fast when query executes.
-  // eslint-disable-next-line no-console
-  console.warn('[db] Missing PostgreSQL env config (DATABASE_URL/HYPERDRIVE_CONNECTION_STRING or DB_HOST/DB_PORT/DB_NAME/DB_USER).');
-}
-
-const pool = new Pool(
-  Object.assign(
-    {},
-    basePoolConfig || {},
-    { ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined }
-  )
-);
-
-pool.on('error', (err) => {
-  // eslint-disable-next-line no-console
-  console.error('[db] Unexpected pool error:', err);
+mongoose.connection.on('error', (err) => {
+  console.error('[db] MongoDB connection error:', err);
+  connectPromise = null;
 });
 
 async function testConnection() {
-  const result = await pool.query('SELECT NOW() AS now');
-  return result.rows[0];
+  await connect();
+  return { now: new Date() };
 }
 
 async function withTransaction(work) {
-  const client = await pool.connect();
+  await connect();
+  if (process.env.MONGO_TRANSACTIONS_DISABLED === 'true') {
+    return work(null);
+  }
+  const session = await mongoose.startSession();
   try {
-    await client.query('BEGIN');
-    const result = await work(client);
-    await client.query('COMMIT');
+    let result;
+    await session.withTransaction(async () => {
+      result = await work(session);
+    });
     return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
   } finally {
-    client.release();
+    await session.endSession();
   }
 }
 
 module.exports = {
-  pool,
-  query: (text, params) => pool.query(text, params),
-  withTransaction,
-  testConnection
+  mongoose,
+  connect,
+  testConnection,
+  withTransaction
 };

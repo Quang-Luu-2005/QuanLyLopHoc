@@ -1,5 +1,5 @@
 ﻿/**
- * Selection counting now stored in PostgreSQL through backend API.
+ * Selection counting now stored in MongoDB through backend API.
  */
 
 function getSelectionDedupSet_(eventDate) {

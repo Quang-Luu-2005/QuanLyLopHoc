@@ -9,8 +9,70 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: false }));
+
+function parseRequestBody(req, res, next) {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return next();
+  }
+
+  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+  const shouldParseJson = contentType.includes('application/json');
+  const shouldParseForm = contentType.includes('application/x-www-form-urlencoded');
+
+  if (!shouldParseJson && !shouldParseForm) {
+    req.body = req.body || {};
+    return next();
+  }
+
+  let raw = '';
+  let aborted = false;
+  const maxBytes = 2 * 1024 * 1024;
+
+  req.setEncoding('utf8');
+
+  req.on('data', (chunk) => {
+    if (aborted) {
+      return;
+    }
+
+    raw += chunk;
+    if (raw.length > maxBytes) {
+      aborted = true;
+      res.status(413).json({ ok: false, error: 'Payload too large' });
+    }
+  });
+
+  req.on('end', () => {
+    if (aborted) {
+      return;
+    }
+
+    if (!raw) {
+      req.body = {};
+      return next();
+    }
+
+    try {
+      if (shouldParseJson) {
+        req.body = JSON.parse(raw);
+      } else {
+        const params = new URLSearchParams(raw);
+        const parsed = {};
+        for (const [key, value] of params.entries()) {
+          parsed[key] = value;
+        }
+        req.body = parsed;
+      }
+      return next();
+    } catch (error) {
+      return res.status(400).json({ ok: false, error: 'Invalid request body' });
+    }
+  });
+
+  return req.on('error', next);
+}
+
+app.use(parseRequestBody);
 
 app.use('/internal', internalRoutes);
 app.use('/webhooks', webhookRoutes);

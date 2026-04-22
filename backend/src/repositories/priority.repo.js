@@ -1,48 +1,41 @@
-﻿const { pool } = require('../db/pool');
+const { connect } = require('../db/pool');
+const WeeklyPriority = require('../models/WeeklyPriority');
 
-function runner(client) {
-  return client || pool;
-}
+async function listWeekPriorities(session, weekKey) {
+  await connect();
+  const opts = {};
+  if (session) opts.session = session;
 
-async function listWeekPriorities(client, weekKey) {
-  const db = runner(client);
-  const result = await db.query(
-    `
-      SELECT email
-      FROM weekly_priorities
-      WHERE week_key = $1::date AND priority = TRUE
-    `,
-    [weekKey]
-  );
-
+  const rows = await WeeklyPriority.find({ weekKey: String(weekKey), priority: true }, null, opts).lean();
   const map = {};
-  result.rows.forEach((row) => {
+  rows.forEach((row) => {
     map[String(row.email || '').toLowerCase()] = true;
   });
   return map;
 }
 
-async function saveWeekPriorities(client, weekKey, emails) {
-  const db = runner(client);
+async function saveWeekPriorities(session, weekKey, emails) {
+  await connect();
+  const key = String(weekKey);
   const list = Array.isArray(emails) ? emails : [];
 
-  await db.query('DELETE FROM weekly_priorities WHERE week_key = $1::date', [weekKey]);
+  const deleteOpts = {};
+  if (session) deleteOpts.session = session;
+  await WeeklyPriority.deleteMany({ weekKey: key }, deleteOpts);
 
   let inserted = 0;
-  for (let i = 0; i < list.length; i += 1) {
-    const email = String(list[i] || '').trim().toLowerCase();
-    if (!email) {
-      continue;
-    }
+  for (const raw of list) {
+    const email = String(raw || '').trim().toLowerCase();
+    if (!email) continue;
 
-    await db.query(
-      `
-        INSERT INTO weekly_priorities (week_key, email, priority)
-        VALUES ($1::date, $2, TRUE)
-      `,
-      [weekKey, email]
-    );
-    inserted += 1;
+    try {
+      const doc = new WeeklyPriority({ weekKey: key, email, priority: true });
+      await doc.save(session ? { session } : {});
+      inserted += 1;
+    } catch (e) {
+      if (e.code === 11000) continue;
+      throw e;
+    }
   }
 
   return inserted;

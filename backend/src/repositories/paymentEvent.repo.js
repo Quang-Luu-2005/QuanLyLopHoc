@@ -1,31 +1,16 @@
-﻿const { pool } = require('../db/pool');
+const { connect } = require('../db/pool');
+const PaymentEvent = require('../models/PaymentEvent');
 
-function runner(client) {
-  return client || pool;
-}
+async function insertPaymentEvent(session, input) {
+  await connect();
+  const doc = new PaymentEvent({
+    paymentId: input.paymentId || null,
+    orderCode: input.orderCode || null,
+    eventType: String(input.eventType || 'unknown'),
+    rawPayload: input.rawPayload || {}
+  });
 
-async function insertPaymentEvent(client, input) {
-  const db = runner(client);
-  const result = await db.query(
-    `
-      INSERT INTO payment_events (
-        payment_id,
-        order_code,
-        event_type,
-        raw_payload
-      )
-      VALUES ($1, $2, $3, $4::jsonb)
-      RETURNING *
-    `,
-    [
-      input.paymentId || null,
-      input.orderCode || null,
-      String(input.eventType || 'unknown'),
-      JSON.stringify(input.rawPayload || {})
-    ]
-  );
-
-  return result.rows[0] || null;
+  return doc.save(session ? { session } : {});
 }
 
 module.exports = {
