@@ -33,16 +33,78 @@ function buildPayosDescription_(eventDateKey, email) {
   return value.slice(0, 25);
 }
 
-function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText) {
+function toQrBlobFromDataUrl_(dataUrl, fileName) {
+  var match = String(dataUrl || '').match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/i);
+  if (!match) {
+    return null;
+  }
+  var mimeType = match[1];
+  var base64Data = match[2];
+  var bytes = Utilities.base64Decode(base64Data);
+  return Utilities.newBlob(bytes, mimeType, fileName || 'ma-qr-thanh-toan.png');
+}
+
+function toQrBlobFromUrl_(url, fileName) {
+  var target = String(url || '').trim();
+  if (!/^https?:\/\//i.test(target)) {
+    return null;
+  }
+
+  try {
+    var response = UrlFetchApp.fetch(target, {
+      method: 'get',
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+    var status = Number(response.getResponseCode() || 0);
+    if (status < 200 || status >= 300) {
+      return null;
+    }
+
+    var blob = response.getBlob();
+    return blob.setName(fileName || 'ma-qr-thanh-toan.png');
+  } catch (err) {
+    return null;
+  }
+}
+
+function buildQrImageBlob_(qrCodeValue, checkoutUrl, paymentCode) {
+  var fileName = 'ma-qr-' + String(paymentCode || 'payos') + '.png';
+  var raw = String(qrCodeValue || '').trim();
+  if (!raw && checkoutUrl) {
+    raw = String(checkoutUrl || '').trim();
+  }
+  if (!raw) {
+    return null;
+  }
+
+  if (/^data:image\//i.test(raw)) {
+    return toQrBlobFromDataUrl_(raw, fileName);
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    return toQrBlobFromUrl_(raw, fileName);
+  }
+
+  var generatedQrUrl = 'https://quickchart.io/qr?size=360&text=' + encodeURIComponent(raw);
+  return toQrBlobFromUrl_(generatedQrUrl, fileName);
+}
+
+function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentCode, checkoutUrl, amountText, includeQrInline) {
   var safeName = escapeHtml_(name || 'Bạn');
   var safeDate = escapeHtml_(eventDateText || 'sắp tới');
   var safeMsg = escapeHtml_(customMessage || CONFIG.DEFAULT_MESSAGE || '');
   var safeCode = escapeHtml_(paymentCode || 'N/A');
   var safeAmount = escapeHtml_(amountText || String((CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'));
   var safeCheckout = escapeHtml_(checkoutUrl || '');
+  var showQr = !!includeQrInline;
 
   var checkoutBlock = safeCheckout
     ? '<p><a href="' + safeCheckout + '" target="_blank" rel="noopener noreferrer">Thanh toán qua PayOS</a></p>'
+    : '';
+  var qrBlock = showQr
+    ? '<p><strong>Mã QR thanh toán:</strong></p>' +
+      '<p><img src="cid:paymentQr" alt="Mã QR thanh toán" style="max-width:260px;width:100%;height:auto;border:1px solid #e5e7eb;border-radius:8px"></p>'
     : '';
 
   return '' +
@@ -52,6 +114,7 @@ function buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMess
     '<p>Bạn cần đóng phí trước khi nhận link nhóm.</p>' +
     '<p><strong>Số tiền:</strong> ' + safeAmount + '</p>' +
     '<p><strong>Nội dung chuyển khoản:</strong> <code>' + safeCode + '</code></p>' +
+    qrBlock +
     checkoutBlock +
     '<p>' + safeMsg + '</p>' +
     '<p>Trân trọng,<br>Ban tổ chức</p>' +
@@ -166,14 +229,22 @@ function sendSelectionEmails(payload) {
         supportMessage: customMessage,
         needPayment: true
       });
-
-      MailApp.sendEmail({
+      var effectivePaymentCode = String(paymentRes.paymentCode || paymentCode);
+      var qrBlob = buildQrImageBlob_(paymentRes.qrCode, paymentRes.checkoutUrl, effectivePaymentCode);
+      var mailPayload = {
         to: email,
         subject: 'Yêu cầu thanh toán phí thi đấu ngày ' + eventDateText,
-        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentRes.paymentCode || paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
-        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentRes.paymentCode || paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
+        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
+        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, effectivePaymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ', !!qrBlob),
         name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
-      });
+      };
+
+      if (qrBlob) {
+        mailPayload.inlineImages = { paymentQr: qrBlob };
+        mailPayload.attachments = [qrBlob.copyBlob().setName('ma-qr-thanh-toan.png')];
+      }
+
+      MailApp.sendEmail(mailPayload);
 
       sent++;
       sentPayment++;

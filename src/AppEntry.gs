@@ -88,12 +88,14 @@ function processPaidPaymentMailsFromApi_() {
 
   var sent = 0;
   var errors = 0;
+  var skippedMissingFields = 0;
 
   for (var i = 0; i < rows.length; i++) {
     var item = rows[i] || {};
     var email = normalizeEmail_(item.email);
-    var paymentId = Number(item.paymentId || item.id || 0);
+    var paymentId = String(item.paymentId || item.id || '').trim();
     if (!email || !paymentId) {
+      skippedMissingFields++;
       continue;
     }
 
@@ -123,6 +125,11 @@ function processPaidPaymentMailsFromApi_() {
       sent++;
     } catch (error) {
       errors++;
+      Logger.log(
+        'Gửi mail nhóm thất bại. paymentId=' + paymentId +
+        ', email=' + email +
+        ', error=' + String(error && error.message ? error.message : error)
+      );
       try {
         apiPost_('/internal/mark-mail-sent', {
           paymentId: paymentId,
@@ -135,10 +142,18 @@ function processPaidPaymentMailsFromApi_() {
     }
   }
 
+  Logger.log(
+    'processPaidPaymentMailsFromApi_: rows=' + rows.length +
+    ', sent=' + sent +
+    ', errors=' + errors +
+    ', skippedMissingFields=' + skippedMissingFields
+  );
+
   return {
     processed: rows.length,
     sent: sent,
-    errors: errors
+    errors: errors,
+    skippedMissingFields: skippedMissingFields
   };
 }
 
