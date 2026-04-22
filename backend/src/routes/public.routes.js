@@ -9,6 +9,14 @@ function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
+router.get('/', (req, res) => {
+  res.json({ ok: true, service: 'quanlylophoc-backend', status: 'running' });
+});
+
+router.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
 router.get('/health', asyncHandler(async (req, res) => {
   res.json({ ok: true, status: 'healthy', time: new Date().toISOString() });
 }));
