@@ -74,7 +74,7 @@ function installTriggers() {
   }
 
   ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(ss).onFormSubmit().create();
-  ScriptApp.newTrigger('processPaidPaymentMailsFromApi_').timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger('processPaidPaymentMailsFromApi_').timeBased().everyMinutes(1).create();
   return { ok: true };
 }
 
@@ -83,8 +83,7 @@ function onFormSubmit(e) {
 }
 
 function processPaidPaymentMailsFromApi_() {
-  var cooldown = Number((CONFIG.PAYMENT && CONFIG.PAYMENT.GROUP_MAIL_COOLDOWN_MINUTES) || 2);
-  var ready = apiGet_('/internal/ready-group-mails', { cooldownMinutes: cooldown });
+  var ready = apiGet_('/internal/ready-group-mails');
   var rows = Array.isArray(ready.rows) ? ready.rows : [];
 
   var sent = 0;
@@ -139,8 +138,7 @@ function processPaidPaymentMailsFromApi_() {
   return {
     processed: rows.length,
     sent: sent,
-    errors: errors,
-    cooldownMinutes: cooldown
+    errors: errors
   };
 }
 

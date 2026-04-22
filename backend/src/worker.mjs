@@ -221,7 +221,7 @@ async function handleInternalRoute(method, path, url, body) {
   }
 
   if (method === "GET" && path === "/internal/ready-group-mails") {
-    const cooldownMinutes = Number(url.searchParams.get("cooldownMinutes") || url.searchParams.get("cooldown") || 2);
+    const cooldownMinutes = Number(url.searchParams.get("cooldownMinutes") || url.searchParams.get("cooldown") || 0);
     const rows = await paymentService.getReadyGroupMails(cooldownMinutes);
     return jsonResponse(200, { ok: true, rows });
   }

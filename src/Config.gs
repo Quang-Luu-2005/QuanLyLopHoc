@@ -69,8 +69,7 @@ var CONFIG = {
     AMOUNT: Number(ENV.PAYMENT_AMOUNT || readScriptProperty_('DEFAULT_PAYMENT_AMOUNT', 50000)),
     FEE_TEXT: String(ENV.PAYMENT_FEE_TEXT || '50.000đ'),
     NOTE_TEXT: String(ENV.PAYMENT_NOTE_TEXT || 'Bạn vui lòng chuyển khoản để nhận được link group Zalo tham gia buổi thực hành.'),
-    CODE_PREFIX: String(ENV.PAYMENT_CODE_PREFIX || 'GE').trim(),
-    GROUP_MAIL_COOLDOWN_MINUTES: Number(ENV.PAYMENT_GROUP_MAIL_COOLDOWN_MINUTES || 2)
+    CODE_PREFIX: String(ENV.PAYMENT_CODE_PREFIX || 'GE').trim()
   },
   RANK_LEVELS: [
     'Nghiệp dư',

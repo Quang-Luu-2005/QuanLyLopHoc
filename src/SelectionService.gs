@@ -149,6 +149,7 @@ function sendSelectionEmails(payload) {
     var paymentRequired = !!item.paymentRequired;
 
     if (paymentRequired) {
+      var paymentCode = buildPayosDescription_(eventDateKey, email);
       var paymentRes = apiPost_('/internal/create-payment', {
         playerId: item.playerId || null,
         submissionId: item.submissionId || null,
@@ -156,8 +157,9 @@ function sendSelectionEmails(payload) {
         ingameName: ingame,
         buyerName: name,
         buyerEmail: email,
+        paymentCode: paymentCode,
         amount: Number((CONFIG.PAYMENT && CONFIG.PAYMENT.AMOUNT) || 50000),
-        description: buildPayosDescription_(eventDateKey, email),
+        description: paymentCode,
         weekKey: weekKey,
         eventDate: eventDateKey,
         groupLink: zaloLink,
@@ -168,8 +170,8 @@ function sendSelectionEmails(payload) {
       MailApp.sendEmail({
         to: email,
         subject: 'Yêu cầu thanh toán phí thi đấu ngày ' + eventDateText,
-        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentRes.paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
-        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentRes.paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
+        body: buildPaymentInstructionEmailTextSimple_(name, eventDateText, customMessage, paymentRes.paymentCode || paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
+        htmlBody: buildPaymentInstructionEmailHtmlSimple_(name, eventDateText, customMessage, paymentRes.paymentCode || paymentCode, paymentRes.checkoutUrl, (CONFIG.PAYMENT && CONFIG.PAYMENT.FEE_TEXT) || '50.000đ'),
         name: CONFIG.MAIL_SENDER_NAME || 'Lớp học Thành Mẫn'
       });
 

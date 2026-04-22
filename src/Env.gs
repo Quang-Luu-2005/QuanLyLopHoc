@@ -17,7 +17,6 @@ function getEnv_() {
     PAYMENT_FEE_TEXT: '50.000d',
     PAYMENT_NOTE_TEXT: 'Ban vui long chuyen khoan de nhan duoc link group Zalo tham gia buoi thuc hanh.',
     PAYMENT_CODE_PREFIX: 'GE',
-    PAYMENT_GROUP_MAIL_COOLDOWN_MINUTES: 1,
 
     FORM_SYNC_BATCH_SIZE: 50
   };

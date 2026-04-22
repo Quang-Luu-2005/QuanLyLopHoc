@@ -309,8 +309,8 @@ async function getPaymentStatusMapForWeek(weekKey) {
 }
 
 async function getReadyGroupMails(cooldownMinutes) {
-  const mins = Number(cooldownMinutes || 2);
-  return paymentRepo.listReadyGroupMails(Number.isNaN(mins) ? 2 : Math.max(0, mins));
+  const mins = Number(cooldownMinutes);
+  return paymentRepo.listReadyGroupMails(Number.isNaN(mins) ? 0 : Math.max(0, mins));
 }
 
 async function markMailSent(payload) {

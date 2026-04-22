@@ -184,15 +184,20 @@ async function getPaymentByOrderCode(orderCode) {
 
 async function listReadyGroupMails(cooldownMinutes) {
   await connect();
-  const cooldownMs = Number(cooldownMinutes || 2) * 60 * 1000;
-  const cutoff = new Date(Date.now() - cooldownMs);
-
-  const payments = await Payment.find({
+  const mins = Number(cooldownMinutes);
+  const normalizedCooldownMinutes = Number.isNaN(mins) ? 0 : Math.max(0, mins);
+  const filter = {
     needPayment: true,
     paymentStatus: 'paid',
-    groupMailSentAt: null,
-    paidAt: { $ne: null, $lte: cutoff }
-  })
+    groupMailSentAt: null
+  };
+
+  if (normalizedCooldownMinutes > 0) {
+    const cutoff = new Date(Date.now() - normalizedCooldownMinutes * 60 * 1000);
+    filter.paidAt = { $ne: null, $lte: cutoff };
+  }
+
+  const payments = await Payment.find(filter)
     .populate('playerId', 'email ingameName')
     .sort({ paidAt: 1 })
     .limit(500)

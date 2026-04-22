@@ -22,41 +22,37 @@ function buildCreatePaymentSignature({ amount, cancelUrl, description, orderCode
   return hmacSha256Hex(raw, PAYOS_CHECKSUM_KEY);
 }
 
-function normalizeValue(value) {
-  if (value === null || value === undefined) {
-    return '';
+function sortObjectByKey(obj) {
+  if (!obj || typeof obj !== 'object') {
+    return {};
   }
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-
-function sortObject(obj) {
-  if (Array.isArray(obj)) {
-    return obj.map((item) => {
-      if (item && typeof item === 'object') {
-        return sortObject(item);
-      }
-      return item;
-    });
-  }
-
-  if (obj && typeof obj === 'object') {
-    const out = {};
-    Object.keys(obj).sort().forEach((key) => {
-      out[key] = sortObject(obj[key]);
-    });
-    return out;
-  }
-
-  return obj;
+  return Object.keys(obj)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = obj[key];
+      return acc;
+    }, {});
 }
 
 function buildWebhookSignatureData(data) {
-  const sorted = sortObject(data || {});
+  const sorted = sortObjectByKey(data || {});
   return Object.keys(sorted)
-    .map((key) => `${key}=${encodeURIComponent(normalizeValue(sorted[key]))}`)
+    .filter((key) => sorted[key] !== undefined)
+    .map((key) => {
+      let value = sorted[key];
+      if (Array.isArray(value)) {
+        value = JSON.stringify(value.map((item) => {
+          if (item && typeof item === 'object' && !Array.isArray(item)) {
+            return sortObjectByKey(item);
+          }
+          return item;
+        }));
+      }
+      if ([null, undefined, 'undefined', 'null'].includes(value)) {
+        value = '';
+      }
+      return `${key}=${value}`;
+    })
     .join('&');
 }
 
@@ -66,7 +62,16 @@ function verifyWebhookSignature(payload) {
     return false;
   }
 
-  const rawData = buildWebhookSignatureData(payload && payload.data ? payload.data : {});
+  let data = payload && payload.data ? payload.data : {};
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (err) {
+      data = {};
+    }
+  }
+
+  const rawData = buildWebhookSignatureData(data);
   const expected = hmacSha256Hex(rawData, PAYOS_CHECKSUM_KEY).toLowerCase();
   return expected === received;
 }

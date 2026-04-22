@@ -67,7 +67,7 @@ router.get('/payment-status-map', asyncHandler(async (req, res) => {
 }));
 
 router.get('/ready-group-mails', asyncHandler(async (req, res) => {
-  const cooldownMinutes = Number(req.query.cooldownMinutes || req.query.cooldown || 2);
+  const cooldownMinutes = Number(req.query.cooldownMinutes || req.query.cooldown || 0);
   const rows = await paymentService.getReadyGroupMails(cooldownMinutes);
   res.json({ ok: true, rows });
 }));
